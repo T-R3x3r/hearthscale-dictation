@@ -1,7 +1,9 @@
-/* The HUD over other programs, on a clear window. Every colour, corner, type
-   size and shadow is a token, so a theme and a colourway reach all of it. An
-   overlay window cannot blur what lies behind it, so the blobs sit on solid
-   --bg. */
+/* The HUD over other programs, on a clear window. The window keeps one size
+   while the HUD shows, for a window that resizes moves on the screen, and the
+   plate grows inside it from its bottom edge, so the stripes stay where they
+   are. Every colour, corner, type size, duration and length is a token, so a
+   theme and a colourway reach all of it. An overlay window cannot blur what
+   lies behind it, so the blobs sit on solid --bg. */
 
 html,
 body {
@@ -12,22 +14,27 @@ body {
 
 .hud-root {
   position: absolute;
-  bottom: calc(var(--space) * 5);
-  left: 50%;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(var(--space) * 2);
-  width: max-content;
-  transform: translateX(-50%);
+  align-items: flex-end;
+  justify-content: center;
+  width: calc(var(--space) * 125);
+  height: calc(var(--space) * 44);
+  padding: calc(var(--space) * 5);
 }
 
 .hud-root[data-state='gone'] {
-  display: none;
+  visibility: hidden;
 }
 
-.hud-plate,
-.hud-words {
+.hud-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  width: calc(var(--space) * 19.25);
   border: var(--bw) solid var(--tipline);
   border-radius: var(--r-card);
   background:
@@ -39,19 +46,52 @@ body {
     radial-gradient(calc(var(--space) * 22.5) calc(var(--space) * 11.5) at 90% -10%, var(--fade-6)),
     var(--bg);
   box-shadow: var(--gloss-edge), var(--shadow-float);
+  transition: width var(--dur-slow) var(--ease-out);
 }
 
-.hud-plate {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.hud-root[data-words='true'] .hud-plate {
+  width: calc(var(--space) * 115);
+}
+
+.hud-root[data-state='note'] .hud-plate {
+  width: max-content;
+  max-width: calc(var(--space) * 115);
+  transition: none;
+}
+
+.hud-root[data-entering='true'] .hud-plate {
+  animation: hud-enter var(--dur-slow) var(--ease-out);
+}
+
+.hud-root[data-leaving='true'] {
+  visibility: visible;
+}
+
+.hud-root[data-leaving='true'] .hud-plate {
+  animation: hud-leave var(--dur) var(--ease-out) forwards;
+}
+
+@keyframes hud-enter {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space) * 2));
+  }
+}
+
+@keyframes hud-leave {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--space) * 1));
+  }
 }
 
 .hud-plate svg {
+  flex: none;
   display: block;
 }
 
-.hud-root[data-state='note'] .hud-plate svg {
+.hud-root[data-state='note'] .hud-plate svg,
+.hud-root[data-state='note'] .hud-words {
   display: none;
 }
 
@@ -63,25 +103,49 @@ body {
 }
 
 .hud-root[data-state='note'] .hud-note {
-  box-sizing: border-box;
-  max-width: calc(var(--space) * 115);
   padding: calc(var(--space) * 3) calc(var(--space) * 4);
 }
 
+/* The words keep one width, so they do not wrap anew as the plate grows, and
+   stand at the box's bottom edge, so the older lines leave at the top. */
 .hud-words {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  height: 0;
+  transition: height var(--dur-slow) var(--ease-out);
+}
+
+.hud-words[data-more='true'] {
+  mask-image: linear-gradient(to bottom, transparent, var(--text) 40%);
+}
+
+.hud-words-text {
+  flex: none;
   box-sizing: border-box;
-  max-width: calc(var(--space) * 115);
-  padding: calc(var(--space) * 2) calc(var(--space) * 3);
+  width: calc(var(--space) * 115 - var(--bw) * 2);
+  padding: calc(var(--space) * 3) calc(var(--space) * 4) 0;
   color: var(--text);
   font-family: var(--font-app);
   font-size: var(--fs-row);
   line-height: var(--lh-body);
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  overflow-wrap: anywhere;
 }
 
-.hud-words[hidden] {
+.hud-note:empty {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-plate,
+  .hud-words {
+    transition: none;
+  }
+
+  .hud-root[data-entering='true'] .hud-plate,
+  .hud-root[data-leaving='true'] .hud-plate {
+    animation: none;
+  }
 }

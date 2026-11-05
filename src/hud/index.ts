@@ -16,8 +16,8 @@ const HEIGHT = 44;
 const SPAN = STEP * (COUNT - 1) + BAR;
 const WIDTH = Math.round(SPAN + 34);
 const MIDDLE = (COUNT - 1) / 2;
-/** Room around the plate for its shadow, in points. */
-const ROOM = 20;
+/** The most lines of words the plate shows. */
+const LINES = 3;
 /** How fast a stripe rises and falls, how much it flickers and how fast, and
  *  how slowly the voice spreads outward, in seconds a stripe. */
 const RISE = 0.5;
@@ -43,6 +43,9 @@ const root = document.createElement('div');
 root.className = 'hud-root';
 const wordsBox = document.createElement('div');
 wordsBox.className = 'hud-words';
+const wordsText = document.createElement('div');
+wordsText.className = 'hud-words-text';
+wordsBox.append(wordsText);
 const plate = document.createElement('div');
 plate.className = 'hud-plate';
 const noteBox = document.createElement('div');
@@ -76,8 +79,8 @@ const stripes = Array.from({ length: COUNT }, (_, i) => {
   svg.append(rect);
   return rect;
 });
-plate.append(svg, noteBox);
-root.append(wordsBox, plate);
+plate.append(wordsBox, svg, noteBox);
+root.append(plate);
 document.body.append(root);
 
 const app = new App({ name: 'Dictation HUD', version: '0.1.0' }, {}, { autoResize: false });
@@ -140,17 +143,23 @@ function frame(ms: number): void {
   requestAnimationFrame(frame);
 }
 
-/** Reports the size the HUD needs now, which shows it or hides it. */
-function fit(): void {
-  if (state.kind === 'gone') {
-    void app.sendSizeChanged({ width: 0, height: 0 });
-    return;
-  }
+/** The window's one size while the HUD shows, or an empty one, which hides it. */
+function fit(shown: boolean): void {
   const box = root.getBoundingClientRect();
-  void app.sendSizeChanged({
-    width: Math.ceil(box.width) + ROOM * 2,
-    height: Math.ceil(box.height) + ROOM * 2,
-  });
+  void app.sendSizeChanged(
+    shown ? { width: Math.ceil(box.width), height: Math.ceil(box.height) } : { width: 0, height: 0 },
+  );
+}
+
+/** Shows the words in a box as tall as their lines, up to the most it holds. */
+function showWords(said: string): void {
+  root.dataset.words = String(said !== '');
+  if (wordsText.textContent !== said) wordsText.textContent = said;
+  const style = getComputedStyle(wordsText);
+  const most = LINES * parseFloat(style.lineHeight) + parseFloat(style.paddingTop);
+  const height = said === '' ? 0 : wordsText.offsetHeight;
+  wordsBox.style.height = `${Math.min(height, most)}px`;
+  wordsBox.dataset.more = String(height > most);
 }
 
 function show(next: HudState): void {
@@ -158,17 +167,37 @@ function show(next: HudState): void {
   state = next;
   root.dataset.state = next.kind;
   noteBox.textContent = next.kind === 'note' ? next.note : '';
-  const said = next.kind === 'speaking' || next.kind === 'working' ? next.words : '';
-  wordsBox.textContent = said;
-  wordsBox.hidden = !said;
+  showWords(next.kind === 'speaking' || next.kind === 'working' ? next.words : '');
   if (next.kind === 'speaking' && was !== 'speaking') parts.length = 0;
   if ((next.kind === 'speaking' || next.kind === 'working') && !running) {
     running = true;
     lastFrame = 0;
     requestAnimationFrame(frame);
   }
-  fit();
+  if (next.kind === 'gone') {
+    if (was === 'gone') return;
+    if (CALM) {
+      fit(false);
+      return;
+    }
+    root.dataset.entering = 'false';
+    root.dataset.leaving = 'true';
+    return;
+  }
+  root.dataset.leaving = 'false';
+  if (was === 'gone') {
+    root.dataset.entering = 'true';
+    fit(true);
+  }
 }
+
+plate.addEventListener('animationend', () => {
+  root.dataset.entering = 'false';
+  if (root.dataset.leaving === 'true') {
+    root.dataset.leaving = 'false';
+    fit(false);
+  }
+});
 
 app.fallbackNotificationHandler = async ({ method, params }) => {
   if (method !== 'hearthscale/events/event') return;
@@ -182,4 +211,5 @@ app.fallbackNotificationHandler = async ({ method, params }) => {
 
 await app.connect(new PostMessageTransport(window.parent, window.parent));
 const first = await app.callServerTool({ name: 'hud_state', arguments: {} });
+fit(false);
 show((first.structuredContent as { state: HudState }).state);
