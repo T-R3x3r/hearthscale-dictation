@@ -31,12 +31,12 @@ body {
   border: var(--bw) solid var(--tipline);
   border-radius: var(--r-card);
   background:
-    radial-gradient(90px 60px at 6% 0%, var(--fade-1)),
-    radial-gradient(80px 70px at 14% 100%, var(--fade-2)),
-    radial-gradient(110px 40px at 62% 0%, var(--fade-3)),
-    radial-gradient(90px 60px at 98% 100%, var(--fade-4)),
-    radial-gradient(120px 46px at 45% 110%, var(--fade-5)),
-    radial-gradient(90px 46px at 90% -10%, var(--fade-6)),
+    radial-gradient(calc(var(--space) * 22.5) calc(var(--space) * 15) at 6% 0%, var(--fade-1)),
+    radial-gradient(calc(var(--space) * 20) calc(var(--space) * 17.5) at 14% 100%, var(--fade-2)),
+    radial-gradient(calc(var(--space) * 27.5) calc(var(--space) * 10) at 62% 0%, var(--fade-3)),
+    radial-gradient(calc(var(--space) * 22.5) calc(var(--space) * 15) at 98% 100%, var(--fade-4)),
+    radial-gradient(calc(var(--space) * 30) calc(var(--space) * 11.5) at 45% 110%, var(--fade-5)),
+    radial-gradient(calc(var(--space) * 22.5) calc(var(--space) * 11.5) at 90% -10%, var(--fade-6)),
     var(--bg);
   box-shadow: var(--gloss-edge), var(--shadow-float);
 }
@@ -64,13 +64,13 @@ body {
 
 .hud-root[data-state='note'] .hud-note {
   box-sizing: border-box;
-  max-width: var(--hud-words-width);
+  max-width: calc(var(--space) * 115);
   padding: calc(var(--space) * 3) calc(var(--space) * 4);
 }
 
 .hud-words {
   box-sizing: border-box;
-  max-width: var(--hud-words-width);
+  max-width: calc(var(--space) * 115);
   padding: calc(var(--space) * 2) calc(var(--space) * 3);
   color: var(--text);
   font-family: var(--font-app);

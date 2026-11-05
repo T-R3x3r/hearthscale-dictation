@@ -1,12 +1,12 @@
 # Dictation
 
-Hold a key and speak. Clean text appears in the program in front. Dictation runs on models on your computer, so what you say stays with you.
+Hold a key and speak. Clean text appears in the program in front. The models run on your computer, so what you say stays with you.
 
-Dictation is free and needs no account.
+Free, with no account.
 
 ## Get started
 
-Dictation has no window of its own. Download the models the introduction offers, then hold **Ctrl+Shift+Space** in any program and speak. Let go, and the text appears where you were typing, in any language your model hears.
+There is no window to open. Download the models the introduction offers, then hold **Ctrl+Shift+Space** in any program and speak. Let go, and the text appears where you were typing, in any language your model hears.
 
 - **Live words** show as you speak, with a model that streams. With any other model, the whole text appears when you let go.
 - **Clean up** removes filler words and false starts, keeps your last correction and fixes the punctuation. Choose a chat model to switch it on.
@@ -24,14 +24,14 @@ Under **Key behaviour**:
 
 With one key alone, press another key with it to cancel the dictation. Ctrl+C still copies.
 
-## The models it needs
+## Models
 
 - **A speech model**, to hear you. Required. Parakeet TDT v3 gives the best text at about the same speed on a graphics card, in many languages. Nemotron shows words as you speak.
 - **A chat model**, to clean up the text. Optional. Gemma 4 E2B handles many languages. The Phonon refiner is faster, for English.
 
 Download them from the introduction or in Hearthscale Server, then choose them in **Settings > Apps > Dictation**.
 
-## What Dictation asks for
+## Permissions
 
 - **Your microphone**, the system's default, only while you dictate.
 - **To type into your other programs**, to insert the text.

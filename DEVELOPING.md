@@ -33,6 +33,9 @@ pnpm build
 5. Fewer than 200 ms of voice is no speech, whatever the model made of it. Models write `Thank you.` or `The.` on silence.
 6. The clean up runs on the whole text, with the transcript in tags, which keeps a model from answering a dictated question. A length guard keeps the heard text when the answer strays from it.
 7. A text of one line up to 200 characters is typed; any other is pasted, for a typed line break is the Enter key, which sends a message in a chat program. A terminal gets one line.
+8. The text goes to the window in front when the dictation ended, and no other: a window that comes to the front later gets nothing, and the text stays in History.
+9. A press while a text is on its way starts the next dictation at once. The texts land in order, each once the keys are up.
+10. An accidental tap ends after 60 s with no voice. A model that does not answer ends the wait, and a clean up that takes over 30 s leaves the heard text.
 
 The stream runs with `pauses: false`. A pause would cut a sentence on a model that streams, and take its punctuation.
 

@@ -16,10 +16,10 @@ body,
   border: var(--bw) solid var(--tipline);
   border-radius: var(--r-card);
   background:
-    radial-gradient(240px 160px at 6% 0%, var(--fade-1)),
-    radial-gradient(220px 200px at 14% 100%, var(--fade-2)),
-    radial-gradient(280px 120px at 62% 0%, var(--fade-3)),
-    radial-gradient(240px 160px at 98% 100%, var(--fade-4)),
+    radial-gradient(calc(var(--space) * 60) calc(var(--space) * 40) at 6% 0%, var(--fade-1)),
+    radial-gradient(calc(var(--space) * 55) calc(var(--space) * 50) at 14% 100%, var(--fade-2)),
+    radial-gradient(calc(var(--space) * 70) calc(var(--space) * 30) at 62% 0%, var(--fade-3)),
+    radial-gradient(calc(var(--space) * 60) calc(var(--space) * 40) at 98% 100%, var(--fade-4)),
     var(--bg);
 }
 

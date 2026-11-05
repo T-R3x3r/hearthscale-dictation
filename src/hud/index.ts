@@ -18,8 +18,6 @@ const WIDTH = Math.round(SPAN + 34);
 const MIDDLE = (COUNT - 1) / 2;
 /** Room around the plate for its shadow, in points. */
 const ROOM = 20;
-/** The widest the words stand, in points. */
-const WORDS_WIDTH = 460;
 /** How fast a stripe rises and falls, how much it flickers and how fast, and
  *  how slowly the voice spreads outward, in seconds a stripe. */
 const RISE = 0.5;
@@ -182,7 +180,6 @@ app.fallbackNotificationHandler = async ({ method, params }) => {
   }
 };
 
-document.documentElement.style.setProperty('--hud-words-width', `${WORDS_WIDTH}px`);
 await app.connect(new PostMessageTransport(window.parent, window.parent));
 const first = await app.callServerTool({ name: 'hud_state', arguments: {} });
 show((first.structuredContent as { state: HudState }).state);

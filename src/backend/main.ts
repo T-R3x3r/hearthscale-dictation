@@ -1,12 +1,14 @@
 /**
  * The backend of Dictation, a headless app: its keys, its models and its
  * choices sit on its page in Settings. A press of the hotkey starts a dictation,
- * and when it ends the words go through the clean up into the program in front.
- * The HUD and the history at the tray icon hear it through events: `hud`,
- * `levels` and `history`.
+ * and when it ends the words go through the clean up into the window in front
+ * at that moment, and no other. The HUD and the history at the tray icon hear
+ * it through events: `hud`, `levels` and `history`.
  *
- * A key alone also fires `cancelled` when a second key goes down with it: the
- * person meant that combination, so the dictation is dropped.
+ * A next dictation may start while the last one's text is on its way: the texts
+ * land in order, each once the keys are up, for a program reads a held Ctrl plus
+ * the text. A key alone also fires `cancelled` when a second key goes down with
+ * it: the person meant that combination, so the dictation is dropped.
  */
 import type { AppContext, Backend, HotkeyFire, ProgramFire } from '@hearthscale/app';
 import type { Entry, History, HudState, Levels } from '../shared/types.ts';
@@ -21,6 +23,17 @@ interface Settings {
   styles: boolean;
   words: string;
   history: boolean;
+}
+
+/** A dictation that hears now. */
+interface Hearing {
+  dictation: Dictation;
+  pressedAt: number;
+  /** Comes once this dictation no longer holds the keys. */
+  letGo: Promise<void>;
+  release: () => void;
+  /** Why it stopped before the text came, in words. */
+  failed: string | null;
 }
 
 /** The languages of the settings, by the code a transcription model takes. */
@@ -64,10 +77,10 @@ let hudOpening: Promise<void> | null = null;
 let hud: HudState = { kind: 'gone' };
 let noteTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** The dictation that hears now, and when its key went down. */
-let current: { dictation: Dictation; pressedAt: number; heldKey: boolean } | null = null;
-/** The text of the last dictation is on its way. */
-let working = false;
+let current: Hearing | null = null;
+/** The texts on their way, one after the other. */
+let landing: Promise<void> = Promise.resolve();
+let landings = 0;
 
 function tell(state: HudState): void {
   hud = state;
@@ -120,81 +133,88 @@ async function warmUp(): Promise<void> {
 
 function start(): void {
   void showHud();
-  void warmUp();
-  const pressed = {
+  let release = () => {};
+  const letGo = new Promise<void>((resolve) => (release = resolve));
+  const hearing: Hearing = {
     pressedAt: Date.now(),
-    heldKey: true,
+    letGo,
+    release,
+    failed: null,
     dictation: new Dictation(
       ctx,
-      {
-        language: LANGUAGES[settings.language] ?? null,
-        words: wordsToKnow(),
-      },
+      { language: LANGUAGES[settings.language] ?? null, words: wordsToKnow() },
       {
         levels: (levels: Levels) =>
           void ctx.events.emit({ name: 'levels', data: levels, durable: false }),
         words: (said) => {
+          if (current && current !== hearing) return;
           if (hud.kind === 'speaking' || hud.kind === 'working') tell({ ...hud, words: said });
         },
-        failed: (why) => void fail(why),
+        failed: (why) => fail(hearing, why),
+        silent: () => {
+          if (current === hearing) finish();
+        },
       },
     ),
   };
-  current = pressed;
+  current = hearing;
+  const speaking = () => {
+    void warmUp();
+    tell({ kind: 'speaking', words: '' });
+  };
   if (keyAlone) {
     setTimeout(() => {
-      if (current === pressed) tell({ kind: 'speaking', words: '' });
+      if (current === hearing) speaking();
     }, KEY_ALONE_MS);
-  } else tell({ kind: 'speaking', words: '' });
+  } else speaking();
 }
 
 /** Ends a dictation that cannot go on, and says why. */
-async function fail(why: string): Promise<void> {
-  const dictation = current?.dictation;
-  current = null;
-  await dictation?.drop();
+function fail(hearing: Hearing, why: string): void {
   void ctx.log('warn', why);
+  hearing.failed = why;
+  void hearing.dictation.drop();
+  if (current !== hearing) return;
+  current = null;
+  hearing.release();
   note(why);
 }
 
-/** Puts the text where the person types. A typed line break is the Enter key,
+/** Puts the text in the window `front`. A typed line break is the Enter key,
  *  which sends a message in a chat program, so a text of several lines goes by
  *  paste, or as one line when the person asked for typing. */
-async function insert(text: string): Promise<void> {
-  const lines = text.includes('\n');
-  if (settings.insert === 'Type') await ctx.desktop.type(text.replace(/\s*\n+\s*/g, ' '));
-  else if (settings.insert === 'Paste' || lines || text.length > TYPED_MOST) {
-    await ctx.desktop.paste(text);
-  } else await ctx.desktop.type(text);
+async function insert(text: string, front: string | null): Promise<void> {
+  const held = front ? { front } : {};
+  if (settings.insert === 'Type') {
+    await ctx.desktop.type(text.replace(/\s*\n+\s*/g, ' '), held);
+  } else if (settings.insert === 'Paste' || text.includes('\n') || text.length > TYPED_MOST) {
+    await ctx.desktop.paste(text, held);
+  } else await ctx.desktop.type(text, held);
 }
 
 async function remember(text: string): Promise<void> {
   if (!settings.history) return;
-  await ctx.db.exec('INSERT INTO entries (at, text, program) VALUES (?, ?, ?)', [
-    Date.now(),
-    text,
-    program,
-  ]);
-  await ctx.db.exec(
-    'DELETE FROM entries WHERE id NOT IN (SELECT id FROM entries ORDER BY id DESC LIMIT ?)',
-    [HISTORY_MOST],
-  );
-  void ctx.events.emit({ name: 'history', data: {}, durable: false });
+  try {
+    await ctx.db.exec('INSERT INTO entries (at, text, program) VALUES (?, ?, ?)', [
+      Date.now(),
+      text,
+      program,
+    ]);
+    await ctx.db.exec(
+      'DELETE FROM entries WHERE id NOT IN (SELECT id FROM entries ORDER BY id DESC LIMIT ?)',
+      [HISTORY_MOST],
+    );
+    void ctx.events.emit({ name: 'history', data: {}, durable: false });
+  } catch (e) {
+    void ctx.log('warn', `the history kept nothing: ${reason(e)}`);
+  }
 }
 
-/** Ends the dictation that hears, and lands its text. */
-async function finish(): Promise<void> {
-  const dictation = current?.dictation;
-  current = null;
-  if (!dictation) return;
-  working = true;
-  tell({ kind: 'working', words: hud.kind === 'speaking' ? hud.words : '' });
+/** Lands one dictation's text; answers what the HUD says of it, if anything. */
+async function land(hearing: Hearing, front: string | null): Promise<string | null> {
   try {
-    const heard = await dictation.end();
-    if (!heard) {
-      note('No speech heard.');
-      return;
-    }
+    const heard = await hearing.dictation.end();
+    if (!heard) return hearing.failed ?? 'No speech heard.';
     const chat = await ctx.models.effective('chat');
     const clean =
       settings.cleanUp && !('reason' in chat)
@@ -202,48 +222,61 @@ async function finish(): Promise<void> {
         : heard;
     const text = isTerminal(program) ? clean.replace(/\s*\n+\s*/g, ' ') : clean;
     await remember(text);
+    await current?.letGo;
     try {
-      await insert(text);
-      tell({ kind: 'gone' });
+      await insert(text, front);
     } catch (e) {
       void ctx.log('warn', `the text was not inserted: ${reason(e)}`);
-      note(settings.history ? 'The text is in History.' : 'The text could not be inserted.');
+      return settings.history ? 'The text is in History.' : 'The text could not be inserted.';
     }
+    return null;
   } catch (e) {
     void ctx.log('warn', reason(e));
-    note(reason(e));
-  } finally {
-    working = false;
+    return reason(e);
   }
+}
+
+/** Ends the dictation that hears, and sends its text on its way to the window
+ *  in front now. */
+function finish(): void {
+  const hearing = current;
+  if (!hearing) return;
+  current = null;
+  hearing.release();
+  landings += 1;
+  tell({ kind: 'working', words: hud.kind === 'speaking' ? hud.words : '' });
+  const front = ctx.desktop.front().catch(() => null);
+  landing = landing.then(async () => {
+    const said = await land(hearing, await front);
+    landings -= 1;
+    if (current) return;
+    if (said) note(said);
+    else if (landings === 0) tell({ kind: 'gone' });
+  });
 }
 
 /** A press of the keys, by what the person chose them to do. */
 function pressed(): void {
-  if (working) return;
-  if (current) {
-    void finish();
-    return;
-  }
-  start();
+  if (current) finish();
+  else start();
 }
 
 function released(): void {
   if (!current) return;
   const held = Date.now() - current.pressedAt;
-  current.heldKey = false;
   if (settings.keyBehaviour === 'Tap') return;
   if (settings.keyBehaviour === 'Hold or tap' && held < TAP_MS) return;
-  void finish();
+  finish();
 }
 
-/** The person meant another key: the press of a dictation that goes on from
- *  an earlier tap changes nothing. */
+/** The person meant another key. */
 function cancelled(): void {
-  if (!current?.heldKey) return;
-  const dictation = current.dictation;
+  const hearing = current;
+  if (!hearing) return;
   current = null;
-  void dictation.drop();
-  tell({ kind: 'gone' });
+  hearing.release();
+  void hearing.dictation.drop();
+  tell(landings > 0 ? { kind: 'working', words: '' } : { kind: 'gone' });
 }
 
 async function history(): Promise<History> {

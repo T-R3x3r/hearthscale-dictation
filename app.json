@@ -30,8 +30,8 @@
         "image": "assets/intro-speak.svg"
       },
       {
-        "title": "A model to hear you.",
-        "text": "Parakeet hears many languages, and runs on your computer.",
+        "title": "Download a speech model.",
+        "text": "Parakeet hears many languages and runs on this computer.",
         "download": {
           "kind": "transcription",
           "repo": "nvidia/parakeet-tdt-0.6b-v3",
@@ -39,8 +39,8 @@
         }
       },
       {
-        "title": "A model to clean up.",
-        "text": "Gemma removes filler words and keeps your last correction. Without a chat model, the text stays as you said it.",
+        "title": "Download a chat model.",
+        "text": "Gemma removes filler words and keeps your last correction. Without a chat model, the text stays as spoken.",
         "download": {
           "kind": "chat",
           "repo": "google/gemma-4-E2B-it-qat-q4_0-gguf",
@@ -48,7 +48,7 @@
         }
       },
       {
-        "title": "Make it yours.",
+        "title": "Keys, models and history.",
         "rows": [
           {
             "icon": "check",

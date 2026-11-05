@@ -14,11 +14,22 @@ const PART_MS = 100;
 /** How much of a dictation must hold a voice, in milliseconds, before it is
  *  speech. A key pressed by accident, or a cough, gives no text. */
 const LEAST_VOICE_MS = 200;
+/** How long a dictation hears nothing before it ends, in milliseconds, so a
+ *  tap by accident does not leave the microphone on. */
+const SILENCE_MS = 60_000;
+/** How long the model may take for the text: at least this long, in
+ *  milliseconds, and at most this many times the length of the speech. */
+const LONGEST_WAIT_MS = 60_000;
+const WAIT_PER_SPEECH = 3;
 const RATE = 16_000;
 /** The middle of each band of the HUD, in hertz. */
 const BANDS = [200, 420, 900, 1700, 3000];
 
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
+
+/** Why something failed, in the platform's words without its code before them. */
+export const words = (e: unknown) =>
+  (e instanceof Error ? e.message : String(e)).replace(/^[a-z][a-z.-]*: /, '');
 
 /** The strength of one frequency in a part, from 0 to 1, by Goertzel's
  *  algorithm: the HUD needs five numbers, not a spectrum. */
@@ -52,14 +63,18 @@ export interface Hooks {
   words(words: string): void;
   /** The dictation must end without the person: why, in words. */
   failed(why: string): void;
+  /** The microphone heard nothing for a long time. */
+  silent(): void;
 }
 
 export class Dictation {
-  private stream: Promise<Listening>;
-  private capture: Promise<string>;
-  private readonly unhook: () => void;
+  private readonly stream: Promise<Listening>;
+  private readonly capture: Promise<string>;
+  private readonly unhook: (() => void)[];
   /** What waits to be written, in order, once the stream is open. */
   private writing: Promise<unknown>;
+  private readonly startedAt = Date.now();
+  private lastVoiceAt = Date.now();
   private voiceMs = 0;
   private heard: string[] = [];
   private open = '';
@@ -75,10 +90,15 @@ export class Dictation {
     this.done = new Promise((resolve) => (this.finish = resolve));
     this.stream = this.openStream(options.language, options.words);
     this.writing = this.stream;
-    this.unhook = ctx.capture.on('chunk', (part) => this.hear(part));
-    this.capture = ctx.capture
-      .start('microphone', { part: PART_MS })
-      .then(({ capture }) => capture);
+    this.unhook = [
+      ctx.capture.on('chunk', (part) => this.hear(part)),
+      ctx.capture.on('ended', ({ capture, reason }) => {
+        void this.capture.then((own) => {
+          if (capture === own && !this.ended) hooks.failed(reason);
+        });
+      }),
+    ];
+    this.capture = ctx.capture.start('microphone', { part: PART_MS }).then(({ capture }) => capture);
     this.capture.catch((e: unknown) => hooks.failed(words(e)));
     this.stream.catch((e: unknown) => hooks.failed(words(e)));
   }
@@ -106,44 +126,64 @@ export class Dictation {
     if (part.kind !== 'audio') return;
     void this.capture.then((capture) => {
       if (part.capture !== capture) return;
-      if (part.voice) this.voiceMs += PART_MS;
+      if (part.voice) {
+        this.voiceMs += PART_MS;
+        this.lastVoiceAt = Date.now();
+      } else if (Date.now() - this.lastVoiceAt > SILENCE_MS && !this.ended) {
+        this.hooks.silent();
+      }
       this.hooks.levels(levelsOf(part));
       this.writing = this.writing.then(async () => (await this.stream).write(part.pcm));
     });
   }
 
-  /** Whether the capture named here is this dictation's, once it started. */
-  async holds(capture: string): Promise<boolean> {
-    return (await this.capture.catch(() => null)) === capture;
+  /** The text, or a failure once the model takes far too long. */
+  private async text(): Promise<void> {
+    const speech = Date.now() - this.startedAt;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, refuse) => {
+      timer = setTimeout(
+        () => refuse(new Error('The speech model did not answer.')),
+        Math.max(LONGEST_WAIT_MS, speech * WAIT_PER_SPEECH),
+      );
+    });
+    try {
+      await Promise.race([this.done, late]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /** Stops hearing and answers what was said; empty when it was no speech. */
   async end(): Promise<string> {
     if (this.ended) return '';
     this.ended = true;
-    const capture = await this.capture;
-    await this.ctx.capture.stop(capture);
-    this.unhook();
-    await this.writing;
-    const stream = await this.stream;
-    await stream.end();
-    await this.done;
+    try {
+      await this.ctx.capture.stop(await this.capture);
+      await this.writing;
+      await (await this.stream).end();
+      await this.text();
+    } catch (e) {
+      await this.release();
+      throw e;
+    }
+    this.unhook.forEach((off) => off());
     const text = [...this.heard, this.open].join(' ').trim();
     if (this.voiceMs >= LEAST_VOICE_MS && /[\p{L}\p{N}]/u.test(text)) return text;
     void this.ctx.log('info', `no speech: ${this.voiceMs} ms of voice, ${text.length} characters`);
     return '';
   }
 
-  /** Drops everything: the person meant something else. */
+  /** Drops everything: the person meant something else, or a part failed. */
   async drop(): Promise<void> {
     if (this.ended) return;
     this.ended = true;
-    this.unhook();
+    await this.release();
+  }
+
+  private async release(): Promise<void> {
+    this.unhook.forEach((off) => off());
     await this.capture.then((capture) => this.ctx.capture.stop(capture)).catch(() => {});
     await this.stream.then((stream) => stream.close()).catch(() => {});
   }
 }
-
-/** Why something failed, in the platform's words without its code before them. */
-export const words = (e: unknown) =>
-  (e instanceof Error ? e.message : String(e)).replace(/^[a-z][a-z.-]*: /, '');

@@ -37,6 +37,9 @@ const TERMINALS = /^(windowsterminal|wt|cmd|powershell|pwsh|conhost|alacritty|we
 const GUARDED = 40;
 const SHORTEST = 0.4;
 const LONGEST = 1.5;
+/** How long the clean up may take, in milliseconds, before the heard text goes
+ *  in as it is. */
+const LONGEST_WAIT_MS = 30_000;
 
 export const isTerminal = (program: string | null) => !!program && TERMINALS.test(program);
 
@@ -71,15 +74,21 @@ export async function cleanUp(
       : []),
   ].join('\n\n');
   let text = '';
+  const late = new AbortController();
+  const timer = setTimeout(() => late.abort(), LONGEST_WAIT_MS);
   try {
-    for await (const delta of ctx.models.complete({
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: `<transcript>${heard}</transcript>` },
-      ],
-      reasoning: 'none',
-      sampling: { temperature: 0 },
-    })) {
+    const answer = ctx.models.complete(
+      {
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: `<transcript>${heard}</transcript>` },
+        ],
+        reasoning: 'none',
+        sampling: { temperature: 0 },
+      },
+      late.signal,
+    );
+    for await (const delta of answer) {
       if ('text' in delta) {
         if (!delta.reasoning) text += delta.text;
       } else if (delta.stop === 'error') {
@@ -90,6 +99,8 @@ export async function cleanUp(
   } catch (e) {
     void ctx.log('warn', `the clean up failed: ${e instanceof Error ? e.message : String(e)}`);
     return heard;
+  } finally {
+    clearTimeout(timer);
   }
   const clean = bare(text);
   return plausible(clean, heard) ? clean : heard;
