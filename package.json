@@ -1,0 +1,23 @@
+{
+  "name": "hearthscale-dictation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build --mode history && vite build --mode hud",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hearthscale/app-ui": "link:../Hearthscale-mxc/packages/app-ui",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@hearthscale/app": "link:../Hearthscale-mxc/packages/app",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  }
+}

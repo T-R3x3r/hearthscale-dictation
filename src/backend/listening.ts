@@ -1,0 +1,149 @@
+/**
+ * One dictation's ears: the microphone from the moment of the press, and a
+ * transcription stream that opens beside it. A model's cold start takes a
+ * moment, so the parts wait for the stream and no first word is lost.
+ *
+ * With no pauses, the stream holds one segment until the end, which keeps a
+ * sentence whole and its punctuation in place.
+ */
+import type { AppContext, CapturedPart, Listening } from '@hearthscale/app';
+import type { Levels } from '../shared/types.ts';
+
+/** The length of a part of sound, in milliseconds. */
+const PART_MS = 100;
+/** How much of a dictation must hold a voice, in milliseconds, before it is
+ *  speech. A key pressed by accident, or a cough, gives no text. */
+const LEAST_VOICE_MS = 200;
+const RATE = 16_000;
+/** The middle of each band of the HUD, in hertz. */
+const BANDS = [200, 420, 900, 1700, 3000];
+
+const clamp = (x: number) => Math.max(0, Math.min(1, x));
+
+/** The strength of one frequency in a part, from 0 to 1, by Goertzel's
+ *  algorithm: the HUD needs five numbers, not a spectrum. */
+function bandOf(samples: Int16Array, hertz: number): number {
+  const turn = (2 * Math.PI * hertz) / RATE;
+  const factor = 2 * Math.cos(turn);
+  let last = 0;
+  let before = 0;
+  for (const sample of samples) {
+    const next = sample / 32768 + factor * last - before;
+    before = last;
+    last = next;
+  }
+  const power = last * last + before * before - factor * last * before;
+  const amplitude = (2 * Math.sqrt(Math.max(power, 0))) / Math.max(samples.length, 1);
+  return clamp((20 * Math.log10(amplitude + 1e-7) + 70) / 50);
+}
+
+function levelsOf(part: Extract<CapturedPart, { kind: 'audio' }>): Levels {
+  const samples = new Int16Array(part.pcm.buffer, part.pcm.byteOffset, part.pcm.length >> 1);
+  return {
+    level: clamp((part.level + 52) / 30) ** 0.7,
+    bands: BANDS.map((hertz) => bandOf(samples, hertz)),
+  };
+}
+
+export interface Hooks {
+  /** The loudness of the part just heard. */
+  levels(levels: Levels): void;
+  /** The words so far, on a model that streams. */
+  words(words: string): void;
+  /** The dictation must end without the person: why, in words. */
+  failed(why: string): void;
+}
+
+export class Dictation {
+  private stream: Promise<Listening>;
+  private capture: Promise<string>;
+  private readonly unhook: () => void;
+  /** What waits to be written, in order, once the stream is open. */
+  private writing: Promise<unknown>;
+  private voiceMs = 0;
+  private heard: string[] = [];
+  private open = '';
+  private ended = false;
+  private finish = () => {};
+  private readonly done: Promise<void>;
+
+  constructor(
+    private readonly ctx: AppContext,
+    options: { language: string | null; words: string[] },
+    private readonly hooks: Hooks,
+  ) {
+    this.done = new Promise((resolve) => (this.finish = resolve));
+    this.stream = this.openStream(options.language, options.words);
+    this.writing = this.stream;
+    this.unhook = ctx.capture.on('chunk', (part) => this.hear(part));
+    this.capture = ctx.capture
+      .start('microphone', { part: PART_MS })
+      .then(({ capture }) => capture);
+    this.capture.catch((e: unknown) => hooks.failed(words(e)));
+    this.stream.catch((e: unknown) => hooks.failed(words(e)));
+  }
+
+  /** Opens a stream, which a model that takes no words refuses with words. */
+  private async openStream(language: string | null, names: string[]): Promise<Listening> {
+    const asked = { pauses: false, ...(language && { language }) };
+    const stream = await (names.length > 0
+      ? this.ctx.models.listen({ ...asked, words: names }).catch(() => this.ctx.models.listen(asked))
+      : this.ctx.models.listen(asked));
+    stream.on('partial', ({ text }) => {
+      this.open = text;
+      this.hooks.words([...this.heard, text].join(' '));
+    });
+    stream.on('segment', ({ text }) => {
+      this.open = '';
+      if (text.trim()) this.heard.push(text.trim());
+    });
+    stream.on('error', ({ message }) => this.hooks.failed(message));
+    stream.on('done', () => this.finish());
+    return stream;
+  }
+
+  private hear(part: CapturedPart): void {
+    if (part.kind !== 'audio') return;
+    void this.capture.then((capture) => {
+      if (part.capture !== capture) return;
+      if (part.voice) this.voiceMs += PART_MS;
+      this.hooks.levels(levelsOf(part));
+      this.writing = this.writing.then(async () => (await this.stream).write(part.pcm));
+    });
+  }
+
+  /** Whether the capture named here is this dictation's, once it started. */
+  async holds(capture: string): Promise<boolean> {
+    return (await this.capture.catch(() => null)) === capture;
+  }
+
+  /** Stops hearing and answers what was said; empty when it was no speech. */
+  async end(): Promise<string> {
+    if (this.ended) return '';
+    this.ended = true;
+    const capture = await this.capture;
+    await this.ctx.capture.stop(capture);
+    this.unhook();
+    await this.writing;
+    const stream = await this.stream;
+    await stream.end();
+    await this.done;
+    const text = [...this.heard, this.open].join(' ').trim();
+    if (this.voiceMs >= LEAST_VOICE_MS && /[\p{L}\p{N}]/u.test(text)) return text;
+    void this.ctx.log('info', `no speech: ${this.voiceMs} ms of voice, ${text.length} characters`);
+    return '';
+  }
+
+  /** Drops everything: the person meant something else. */
+  async drop(): Promise<void> {
+    if (this.ended) return;
+    this.ended = true;
+    this.unhook();
+    await this.capture.then((capture) => this.ctx.capture.stop(capture)).catch(() => {});
+    await this.stream.then((stream) => stream.close()).catch(() => {});
+  }
+}
+
+/** Why something failed, in the platform's words without its code before them. */
+export const words = (e: unknown) =>
+  (e instanceof Error ? e.message : String(e)).replace(/^[a-z][a-z.-]*: /, '');

@@ -1,0 +1,44 @@
+/* The history's own layout, over the kit the platform loads into the view. It
+   draws its own box on a clear window, on the colour blobs of the app
+   background. Every length is a count of --space or a token. */
+
+html,
+body,
+.history-root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.history-root {
+  box-sizing: border-box;
+  border: var(--bw) solid var(--tipline);
+  border-radius: var(--r-card);
+  background:
+    radial-gradient(240px 160px at 6% 0%, var(--fade-1)),
+    radial-gradient(220px 200px at 14% 100%, var(--fade-2)),
+    radial-gradient(280px 120px at 62% 0%, var(--fade-3)),
+    radial-gradient(240px 160px at 98% 100%, var(--fade-4)),
+    var(--bg);
+}
+
+.history-root .hs-overlay-scroll {
+  height: 100%;
+}
+
+.history-list {
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  padding: calc(var(--space) * 2);
+}
+
+.history-root .hs-empty-view {
+  height: 100%;
+}
+
+.history-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

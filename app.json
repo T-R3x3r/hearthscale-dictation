@@ -1,0 +1,314 @@
+{
+  "$schema": "https://hearthscale.com/app.schema.json",
+  "id": "dictation",
+  "name": "Dictation",
+  "version": "0.1.0",
+  "api": 6,
+  "icon": {
+    "light": "assets/icon-light.svg",
+    "dark": "assets/icon-dark.svg"
+  },
+  "description": "Hold a key and speak. Clean text appears wherever you type.",
+  "license": "MIT",
+  "categories": [
+    "productivity"
+  ],
+  "payment": "free",
+  "environment": {
+    "kind": "process",
+    "lifetime": "service"
+  },
+  "permissions": [
+    "clipboard-write"
+  ],
+  "onboarding": {
+    "version": 1,
+    "cards": [
+      {
+        "title": "Speak anywhere you type.",
+        "text": "Hold Ctrl+Shift+Space and speak. Let go, and the text appears in the program in front.",
+        "image": "assets/intro-speak.svg"
+      },
+      {
+        "title": "A model to hear you.",
+        "text": "Parakeet hears many languages, and runs on your computer.",
+        "download": {
+          "kind": "transcription",
+          "repo": "nvidia/parakeet-tdt-0.6b-v3",
+          "file": "parakeet-tdt-0.6b-v3.q8_0.gguf"
+        }
+      },
+      {
+        "title": "A model to clean up.",
+        "text": "Gemma removes filler words and keeps your last correction. Without a chat model, the text stays as you said it.",
+        "download": {
+          "kind": "chat",
+          "repo": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+          "file": "gemma-4-E2B_q4_0-it.gguf"
+        }
+      },
+      {
+        "title": "Make it yours.",
+        "rows": [
+          {
+            "icon": "check",
+            "title": "Keys",
+            "text": "A combination or one key, such as Right Ctrl, in Settings."
+          },
+          {
+            "icon": "speech",
+            "title": "Models",
+            "text": "Any speech and chat model, in Settings."
+          },
+          {
+            "icon": "clock",
+            "title": "History",
+            "text": "Open it from the tray icon. It stays on this computer."
+          }
+        ]
+      }
+    ]
+  },
+  "uses": [
+    "db",
+    "events",
+    "models",
+    "capture.microphone",
+    "desktop.actions",
+    "desktop.overlay"
+  ],
+  "models": {
+    "transcription": {
+      "required": true
+    },
+    "chat": {
+      "required": false
+    }
+  },
+  "settings": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "keyBehaviour": {
+          "type": "string",
+          "title": "Key behaviour",
+          "enum": [
+            "Hold or tap",
+            "Hold",
+            "Tap"
+          ],
+          "default": "Hold or tap"
+        },
+        "insert": {
+          "type": "string",
+          "title": "Insert text",
+          "enum": [
+            "Automatic",
+            "Type",
+            "Paste"
+          ],
+          "default": "Automatic"
+        },
+        "language": {
+          "type": "string",
+          "title": "Language",
+          "enum": [
+            "Detect",
+            "English",
+            "German",
+            "French",
+            "Spanish",
+            "Italian",
+            "Portuguese",
+            "Dutch",
+            "Polish",
+            "Swedish",
+            "Danish",
+            "Norwegian",
+            "Finnish",
+            "Japanese",
+            "Chinese",
+            "Korean"
+          ],
+          "default": "Detect"
+        },
+        "cleanUp": {
+          "type": "boolean",
+          "title": "Clean up text",
+          "default": true
+        },
+        "styles": {
+          "type": "boolean",
+          "title": "Match the style to the program",
+          "default": true
+        },
+        "words": {
+          "type": "string",
+          "title": "Words to know",
+          "description": "Names and terms you say often, separated by commas.",
+          "maxLength": 1000,
+          "default": ""
+        },
+        "history": {
+          "type": "boolean",
+          "title": "Keep history",
+          "default": true
+        }
+      }
+    },
+    "layout": [
+      {
+        "title": "Speaking",
+        "items": [
+          {
+            "kind": "property",
+            "property": "keyBehaviour"
+          },
+          {
+            "kind": "property",
+            "property": "language"
+          },
+          {
+            "kind": "property",
+            "property": "words"
+          }
+        ]
+      },
+      {
+        "title": "Text",
+        "items": [
+          {
+            "kind": "property",
+            "property": "insert"
+          },
+          {
+            "kind": "property",
+            "property": "cleanUp"
+          },
+          {
+            "kind": "property",
+            "property": "styles"
+          }
+        ]
+      },
+      {
+        "title": "History",
+        "items": [
+          {
+            "kind": "property",
+            "property": "history"
+          },
+          {
+            "kind": "tool",
+            "tool": "forget_all",
+            "title": "Clear history"
+          }
+        ]
+      }
+    ]
+  },
+  "triggers": [
+    {
+      "name": "dictate",
+      "kind": "hotkey",
+      "keys": "CommandOrControl+Shift+Space",
+      "hold": true
+    },
+    {
+      "name": "program",
+      "kind": "program",
+      "events": [
+        "front"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "hud_state",
+      "title": "Read the HUD's state",
+      "description": "What the HUD shows now.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": false,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "history",
+      "title": "Read the history",
+      "description": "The dictations this computer keeps, newest first.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": false,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "forget",
+      "title": "Remove from history",
+      "description": "Removes one dictation from the history.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "forget_all",
+      "title": "Clear history",
+      "description": "Removes every dictation from the history.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "hud",
+      "kind": "view",
+      "title": "Dictation",
+      "entry": "views/hud.js",
+      "placements": [
+        "overlay"
+      ]
+    },
+    {
+      "id": "history",
+      "kind": "view",
+      "title": "History",
+      "entry": "views/history.js",
+      "placements": [
+        "popover"
+      ]
+    }
+  ]
+}

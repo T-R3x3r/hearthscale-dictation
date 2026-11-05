@@ -1,0 +1,188 @@
+/**
+ * The HUD: seven capsule stripes on a centre line, in the gold fade, on the
+ * colour blobs of the app background. The voice spreads from the centre
+ * outward. It stays loaded between dictations and reports an empty size, so
+ * it shows at once.
+ */
+import { App, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
+import type { HudState, Levels } from '../shared/types.ts';
+import sheet from './hud.css?inline';
+
+const COUNT = 7;
+const BAR = 4;
+const STEP = 6.5;
+const MAX = 30;
+const HEIGHT = 44;
+const SPAN = STEP * (COUNT - 1) + BAR;
+const WIDTH = Math.round(SPAN + 34);
+const MIDDLE = (COUNT - 1) / 2;
+/** Room around the plate for its shadow, in points. */
+const ROOM = 20;
+/** The widest the words stand, in points. */
+const WORDS_WIDTH = 460;
+/** How fast a stripe rises and falls, how much it flickers and how fast, and
+ *  how slowly the voice spreads outward, in seconds a stripe. */
+const RISE = 0.5;
+const FALL = 0.14;
+const FLICK = 0.14;
+const FLICK_RATE = 3.4;
+const SPREAD = 0.07;
+/** How far behind the sound the stripes read it: the time between two parts,
+ *  so they move between the parts and not in steps. */
+const BEHIND_S = 0.1;
+const CALM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const NS = 'http://www.w3.org/2000/svg';
+const style = document.createElement('style');
+style.textContent = sheet;
+document.head.append(style);
+
+const clamp = (x: number, low = 0, high = 1) => Math.max(low, Math.min(high, x));
+const wobble = (t: number, seed: number) =>
+  (Math.sin(t * 1.7 + seed) + Math.sin(t * 3.1 + seed * 2.3) + Math.sin(t * 5.3 + seed * 3.7)) / 3;
+
+const root = document.createElement('div');
+root.className = 'hud-root';
+const wordsBox = document.createElement('div');
+wordsBox.className = 'hud-words';
+const plate = document.createElement('div');
+plate.className = 'hud-plate';
+const noteBox = document.createElement('div');
+noteBox.className = 'hud-note';
+const svg = document.createElementNS(NS, 'svg');
+svg.setAttribute('width', String(WIDTH));
+svg.setAttribute('height', String(HEIGHT));
+svg.setAttribute('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
+const defs = document.createElementNS(NS, 'defs');
+const fade = document.createElementNS(NS, 'linearGradient');
+fade.id = 'fade';
+fade.setAttribute('gradientUnits', 'userSpaceOnUse');
+for (const [name, value] of [['x1', 0], ['x2', 0], ['y1', 8], ['y2', 36]] as const) {
+  fade.setAttribute(name, String(value));
+}
+for (const [offset, token] of [[0, '--mark-hi'], [0.5, '--mark-lo'], [1, '--mark-hi']] as const) {
+  const stop = document.createElementNS(NS, 'stop');
+  stop.setAttribute('offset', String(offset));
+  stop.setAttribute('style', `stop-color: var(${token})`);
+  fade.append(stop);
+}
+defs.append(fade);
+svg.append(defs);
+const left = (WIDTH - SPAN) / 2;
+const stripes = Array.from({ length: COUNT }, (_, i) => {
+  const rect = document.createElementNS(NS, 'rect');
+  rect.setAttribute('x', String(left + i * STEP));
+  rect.setAttribute('width', String(BAR));
+  rect.setAttribute('rx', String(BAR / 2));
+  rect.setAttribute('fill', 'url(#fade)');
+  svg.append(rect);
+  return rect;
+});
+plate.append(svg, noteBox);
+root.append(wordsBox, plate);
+document.body.append(root);
+
+const app = new App({ name: 'Dictation HUD', version: '0.1.0' }, {}, { autoResize: false });
+
+let state: HudState = { kind: 'gone' };
+/** Each part heard lately, newest last, with when it came. */
+const parts: (Levels & { at: number })[] = [];
+const heights = new Array<number>(COUNT).fill(0.1);
+let lastFrame = 0;
+let running = false;
+
+/** The loudness `delay` seconds ago, between the two parts around it. */
+function read(now: number, delay: number): Levels {
+  const at = now - delay;
+  for (let i = parts.length - 1; i > 0; i -= 1) {
+    const newer = parts[i]!;
+    const older = parts[i - 1]!;
+    if (older.at <= at) {
+      const mix = clamp((at - older.at) / Math.max(newer.at - older.at, 1e-3));
+      return {
+        level: older.level + (newer.level - older.level) * mix,
+        bands: older.bands.map((band, b) => band + ((newer.bands[b] ?? 0) - band) * mix),
+      };
+    }
+  }
+  return parts[0] ?? { level: 0, bands: [0, 0, 0, 0, 0] };
+}
+
+function frame(ms: number): void {
+  if (state.kind !== 'speaking' && state.kind !== 'working') {
+    running = false;
+    return;
+  }
+  const now = ms / 1000;
+  const dt = lastFrame ? Math.min(now - lastFrame, 0.1) : 1 / 60;
+  lastFrame = now;
+  stripes.forEach((rect, i) => {
+    const away = Math.abs(i - MIDDLE) / MIDDLE;
+    let target: number;
+    if (state.kind === 'working') {
+      target = CALM
+        ? 0.25
+        : 0.14 + 0.2 * (0.5 + 0.5 * Math.sin(2 * Math.PI * (now / 1.8 - Math.abs(i - MIDDLE) / COUNT)));
+    } else {
+      const past = read(now, BEHIND_S + Math.abs(i - MIDDLE) * SPREAD);
+      const flick = CALM ? 0 : wobble(now * FLICK_RATE, i * 1.9) * FLICK * past.level;
+      const band = past.bands[i % past.bands.length] ?? 0;
+      target = clamp(
+        0.08 + (0.92 - 0.3 * away * away) * past.level * (0.82 + 0.18 * band) + flick,
+        0.06,
+        1,
+      );
+    }
+    const rate = target > heights[i]! ? RISE : FALL;
+    heights[i]! += (target - heights[i]!) * (1 - Math.pow(1 - rate, dt * 60));
+    const size = Math.max(BAR, heights[i]! * MAX);
+    rect.setAttribute('height', String(size));
+    rect.setAttribute('y', String(HEIGHT / 2 - size / 2));
+  });
+  requestAnimationFrame(frame);
+}
+
+/** Reports the size the HUD needs now, which shows it or hides it. */
+function fit(): void {
+  if (state.kind === 'gone') {
+    void app.sendSizeChanged({ width: 0, height: 0 });
+    return;
+  }
+  const box = root.getBoundingClientRect();
+  void app.sendSizeChanged({
+    width: Math.ceil(box.width) + ROOM * 2,
+    height: Math.ceil(box.height) + ROOM * 2,
+  });
+}
+
+function show(next: HudState): void {
+  const was = state.kind;
+  state = next;
+  root.dataset.state = next.kind;
+  noteBox.textContent = next.kind === 'note' ? next.note : '';
+  const said = next.kind === 'speaking' || next.kind === 'working' ? next.words : '';
+  wordsBox.textContent = said;
+  wordsBox.hidden = !said;
+  if (next.kind === 'speaking' && was !== 'speaking') parts.length = 0;
+  if ((next.kind === 'speaking' || next.kind === 'working') && !running) {
+    running = true;
+    lastFrame = 0;
+    requestAnimationFrame(frame);
+  }
+  fit();
+}
+
+app.fallbackNotificationHandler = async ({ method, params }) => {
+  if (method !== 'hearthscale/events/event') return;
+  const { name, data } = params as { name: string; data: unknown };
+  if (name === 'hud') show(data as HudState);
+  else if (name === 'levels') {
+    parts.push({ ...(data as Levels), at: performance.now() / 1000 });
+    if (parts.length > 40) parts.shift();
+  }
+};
+
+document.documentElement.style.setProperty('--hud-words-width', `${WORDS_WIDTH}px`);
+await app.connect(new PostMessageTransport(window.parent, window.parent));
+const first = await app.callServerTool({ name: 'hud_state', arguments: {} });
+show((first.structuredContent as { state: HudState }).state);

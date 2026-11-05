@@ -1,0 +1,4 @@
+# The app is its own project, never part of another workspace.
+# esbuild (via Vite) needs its install script to fetch its native binary.
+allowBuilds:
+  esbuild: true
