@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Button,
   EmptyState,
   Icon,
   IconButton,
@@ -64,6 +65,7 @@ function Row({
 export function History({ host, locale }: { host: Host; locale: string }) {
   const [kept, setKept] = useState<Kept | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [hearing, setHearing] = useState(false);
 
   const load = useCallback(() => {
     void host
@@ -77,18 +79,41 @@ export function History({ host, locale }: { host: Host; locale: string }) {
     return host.on('history', load);
   }, [host, load]);
 
+  const again = () => {
+    setHearing(true);
+    void host
+      .tool<string>('hear_again')
+      .catch((e: unknown) => setProblem(words(e)))
+      .finally(() => {
+        setHearing(false);
+        load();
+      });
+  };
+
   if (problem) return <Notice>{problem}</Notice>;
   if (!kept) return null;
+  const failed = kept.failed && (
+    <div className="history-again">
+      <span>The last dictation did not finish.</span>
+      <Button disabled={hearing} onClick={again}>
+        Try again
+      </Button>
+    </div>
+  );
   if (kept.entries.length === 0) {
     return (
-      <EmptyState
-        icon={<Icon name="mic-line" size={24} />}
-        title={kept.keeps ? 'No dictations yet' : 'History is off'}
-      />
+      <>
+        {failed}
+        <EmptyState
+          icon={<Icon name="mic-line" size={24} />}
+          title={kept.keeps ? 'No dictations yet' : 'History is off'}
+        />
+      </>
     );
   }
   return (
     <OverlayScroll className="history-list">
+      {failed}
       {kept.entries.map((entry) => (
         <Row key={entry.id} entry={entry} locale={locale} host={host} gone={load} />
       ))}

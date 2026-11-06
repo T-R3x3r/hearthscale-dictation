@@ -12,13 +12,13 @@ export const words = (e: unknown) =>
     .replace(/^[a-z][a-z.-]*: /, '');
 
 export class Host {
-  private readonly handlers = new Map<string, Set<() => void>>();
+  private readonly handlers = new Map<string, Set<(data: unknown) => void>>();
 
   constructor(private readonly app: App) {
     app.fallbackNotificationHandler = async ({ method, params }) => {
       if (method !== 'hearthscale/events/event') return;
-      const { name } = params as { name: string };
-      for (const fn of this.handlers.get(name) ?? []) fn();
+      const { name, data } = params as { name: string; data?: unknown };
+      for (const fn of this.handlers.get(name) ?? []) fn(data);
     };
   }
 
@@ -38,7 +38,7 @@ export class Host {
 
   /** Hears one of the backend's events by its name, until the answer is
    *  called. */
-  on(name: string, fn: () => void): () => void {
+  on(name: string, fn: (data: unknown) => void): () => void {
     const set = this.handlers.get(name) ?? new Set();
     set.add(fn);
     this.handlers.set(name, set);

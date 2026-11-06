@@ -45,6 +45,10 @@ const wordsBox = document.createElement('div');
 wordsBox.className = 'hud-words';
 const wordsText = document.createElement('div');
 wordsText.className = 'hud-words-text';
+const settledWords = document.createElement('span');
+const tentativeWords = document.createElement('span');
+tentativeWords.className = 'hud-words-tentative';
+wordsText.append(settledWords, tentativeWords);
 wordsBox.append(wordsText);
 const plate = document.createElement('div');
 plate.className = 'hud-plate';
@@ -151,13 +155,17 @@ function fit(shown: boolean): void {
   );
 }
 
-/** Shows the words in a box as tall as their lines, up to the most it holds. */
-function showWords(said: string): void {
-  root.dataset.words = String(said !== '');
-  if (wordsText.textContent !== said) wordsText.textContent = said;
+/** Shows the words in a box as tall as their lines, up to the most it holds:
+ *  those that no longer change, then in a dimmer colour those that may. */
+function showWords(said: string, tentative: string): void {
+  const any = said !== '' || tentative !== '';
+  root.dataset.words = String(any);
+  if (settledWords.textContent !== said) settledWords.textContent = said;
+  const after = said && tentative ? ` ${tentative}` : tentative;
+  if (tentativeWords.textContent !== after) tentativeWords.textContent = after;
   const style = getComputedStyle(wordsText);
   const most = LINES * parseFloat(style.lineHeight) + parseFloat(style.paddingTop);
-  const height = said === '' ? 0 : wordsText.offsetHeight;
+  const height = any ? wordsText.offsetHeight : 0;
   wordsBox.style.height = `${Math.min(height, most)}px`;
   wordsBox.dataset.more = String(height > most);
 }
@@ -167,7 +175,8 @@ function show(next: HudState): void {
   state = next;
   root.dataset.state = next.kind;
   noteBox.textContent = next.kind === 'note' ? next.note : '';
-  showWords(next.kind === 'speaking' || next.kind === 'working' ? next.words : '');
+  const hearing = next.kind === 'speaking' || next.kind === 'working';
+  showWords(hearing ? next.words : '', hearing ? (next.tentative ?? '') : '');
   if (next.kind === 'speaking' && was !== 'speaking') parts.length = 0;
   if ((next.kind === 'speaking' || next.kind === 'working') && !running) {
     running = true;

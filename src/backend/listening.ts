@@ -8,6 +8,7 @@
  */
 import type { AppContext, CapturedPart, Listening } from '@hearthscale/app';
 import type { Levels } from '../shared/types.ts';
+import type { Dictionary } from './words.ts';
 
 /** The length of a part of sound, in milliseconds. */
 const PART_MS = 100;
@@ -22,6 +23,8 @@ const SILENCE_MS = 60_000;
 const LONGEST_WAIT_MS = 60_000;
 const WAIT_PER_SPEECH = 3;
 const RATE = 16_000;
+/** The most sound a dictation keeps to hear again if its model fails, 10 min. */
+const MOST_KEPT_MS = 600_000;
 /** The middle of each band of the HUD, in hertz. */
 const BANDS = [200, 420, 900, 1700, 3000];
 
@@ -59,12 +62,22 @@ function levelsOf(part: Extract<CapturedPart, { kind: 'audio' }>): Levels {
 export interface Hooks {
   /** The loudness of the part just heard. */
   levels(levels: Levels): void;
-  /** The words so far, on a model that streams. */
-  words(words: string): void;
+  /** The words so far on a model that streams, and those that may still
+   *  change. */
+  words(words: string, tentative: string): void;
   /** The dictation must end without the person: why, in words. */
   failed(why: string): void;
   /** The microphone heard nothing for a long time. */
   silent(): void;
+}
+
+/** What a dictation asks of its model. */
+export interface Heard {
+  language: Promise<string | null>;
+  dictionary: Dictionary;
+  device: string | null;
+  translate: boolean;
+  filterSilence: boolean;
 }
 
 export class Dictation {
@@ -78,17 +91,19 @@ export class Dictation {
   private voiceMs = 0;
   private heard: string[] = [];
   private open = '';
+  private tentative = '';
+  private kept: Uint8Array[] = [];
   private ended = false;
   private finish = () => {};
   private readonly done: Promise<void>;
 
   constructor(
     private readonly ctx: AppContext,
-    options: { language: string | null; words: string[]; device: string | null },
+    options: Heard,
     private readonly hooks: Hooks,
   ) {
     this.done = new Promise((resolve) => (this.finish = resolve));
-    this.stream = this.openStream(options.language, options.words);
+    this.stream = this.openStream(options);
     this.writing = this.stream;
     this.unhook = [
       ctx.capture.on('chunk', (part) => this.hear(part)),
@@ -119,18 +134,27 @@ export class Dictation {
     return capture;
   }
 
-  /** Opens a stream, which a model that takes no words refuses with words. */
-  private async openStream(language: string | null, names: string[]): Promise<Listening> {
-    const asked = { pauses: false, ...(language && { language }) };
-    const stream = await (names.length > 0
-      ? this.ctx.models.listen({ ...asked, words: names }).catch(() => this.ctx.models.listen(asked))
-      : this.ctx.models.listen(asked));
-    stream.on('partial', ({ text }) => {
+  /** Opens a stream on the transcription model. */
+  private async openStream(options: Heard): Promise<Listening> {
+    const language = await options.language;
+    const stream = await this.ctx.models.listen({
+      pauses: false,
+      ...(language && { language }),
+      ...(options.dictionary.words.length > 0 && { words: options.dictionary.words }),
+      ...(Object.keys(options.dictionary.aliases).length > 0 && {
+        aliases: options.dictionary.aliases,
+      }),
+      translate: options.translate,
+      filterSilence: options.filterSilence,
+    });
+    stream.on('partial', ({ text, tentative }) => {
       this.open = text;
-      this.hooks.words([...this.heard, text].join(' '));
+      this.tentative = tentative ?? '';
+      this.hooks.words([...this.heard, text].join(' '), this.tentative);
     });
     stream.on('segment', ({ text }) => {
       this.open = '';
+      this.tentative = '';
       if (text.trim()) this.heard.push(text.trim());
     });
     stream.on('error', ({ message }) => this.hooks.failed(message));
@@ -149,6 +173,7 @@ export class Dictation {
         this.hooks.silent();
       }
       this.hooks.levels(levelsOf(part));
+      if (this.kept.length * PART_MS < MOST_KEPT_MS) this.kept.push(part.pcm);
       this.writing = this.writing.then(async () => (await this.stream).write(part.pcm));
     });
   }
@@ -170,6 +195,11 @@ export class Dictation {
     }
   }
 
+  /** The sound heard so far, to hear again after a failure. */
+  sound(): Uint8Array[] {
+    return this.kept;
+  }
+
   /** Stops hearing and answers what was said; empty when it was no speech. */
   async end(): Promise<string> {
     if (this.ended) return '';
@@ -184,7 +214,7 @@ export class Dictation {
       throw e;
     }
     this.unhook.forEach((off) => off());
-    const text = [...this.heard, this.open].join(' ').trim();
+    const text = [...this.heard, this.open, this.tentative].join(' ').trim();
     if (this.voiceMs >= LEAST_VOICE_MS && /[\p{L}\p{N}]/u.test(text)) return text;
     void this.ctx.log('info', `no speech: ${this.voiceMs} ms of voice, ${text.length} characters`);
     return '';

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build --mode history && vite build --mode hud",
+    "build": "tsc --noEmit && vite build --mode history && vite build --mode hud && vite build --mode micTest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

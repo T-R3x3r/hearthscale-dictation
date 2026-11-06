@@ -38,6 +38,61 @@ body,
   height: 100%;
 }
 
+.history-again {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-inline);
+  padding: calc(var(--space) * 2);
+  color: var(--text);
+  font-size: var(--fs-body);
+}
+
+.mic-test-root {
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mic-test {
+  width: min(100%, calc(var(--space) * 100));
+}
+
+.mic-test-body {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space) * 3);
+  box-sizing: border-box;
+  padding: calc(var(--space) * 4.5) calc(var(--space) * 5);
+}
+
+.mic-test-meter {
+  height: calc(var(--space) * 1.5);
+  overflow: hidden;
+  border-radius: var(--r-ctl);
+  background: var(--hov);
+}
+
+.mic-test-meter span {
+  display: block;
+  height: 100%;
+  transform-origin: left;
+  background: var(--accent);
+  transition: transform var(--dur-fast) linear;
+}
+
+.mic-test-time {
+  color: var(--dim);
+  font-size: var(--fs-cap);
+}
+
+.mic-test-actions {
+  display: flex;
+  gap: var(--gap-inline);
+}
+
 .history-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

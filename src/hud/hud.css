@@ -122,6 +122,10 @@ body {
   mask-image: linear-gradient(to bottom, transparent, var(--text) 40%);
 }
 
+.hud-words-tentative {
+  color: var(--dim);
+}
+
 .hud-words-text {
   flex: none;
   box-sizing: border-box;

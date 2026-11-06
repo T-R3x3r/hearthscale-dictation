@@ -13,8 +13,10 @@ Dictation is a headless Hearthscale app, built only on the platform's documented
 | `src/backend/main.ts` | The keys, the flow of one dictation, the insert and the history. |
 | `src/backend/listening.ts` | The microphone and the transcription stream of one dictation. |
 | `src/backend/cleanup.ts` | The clean up by the chat model. |
+| `src/backend/words.ts` | The dictionary's entries, and the text steps that need no model. |
+| `src/backend/micTest.ts` | The recording of the microphone test. |
 | `src/hud/` | The view over other programs, with no framework. |
-| `src/view/` | The history at the tray icon, React on the kit's parts. |
+| `src/view/` | The history at the tray icon and the microphone test, React on the kit's parts. |
 | `views/` | The views' builds, the files the package carries for them, committed with every change. |
 
 ## Build
@@ -36,6 +38,8 @@ pnpm build
 8. The text goes to the window in front when the dictation ended, and no other: a window that comes to the front later gets nothing, and the text stays in History.
 9. A press while a text is on its way starts the next dictation at once. The texts land in order, each once the keys are up.
 10. An accidental tap ends after 60 s with no voice. A model that does not answer ends the wait, and a clean up that takes over 30 s leaves the heard text.
+
+Escape is a hotkey with `armed: false`, held only while a dictation runs or a text is on its way. While a dictation hears, it drops it. During the clean up, it skips it. A clean up that repeats the text around the cursor runs again without that text, and one whose words the person did not say keeps the heard words: a translation, an answer to a dictated request, or an example from the instructions. The sound of a dictation stays in memory until its text lands, so History can hear it again after a failure.
 
 The stream runs with `pauses: false`. A pause would cut a sentence on a model that streams, and take its punctuation.
 

@@ -112,25 +112,9 @@
         "language": {
           "type": "string",
           "title": "Language",
-          "enum": [
-            "Detect",
-            "English",
-            "German",
-            "French",
-            "Spanish",
-            "Italian",
-            "Portuguese",
-            "Dutch",
-            "Polish",
-            "Swedish",
-            "Danish",
-            "Norwegian",
-            "Finnish",
-            "Japanese",
-            "Chinese",
-            "Korean"
-          ],
-          "default": "Detect"
+          "description": "The languages of the speech model in use. Detect lets a model that can tell the language by itself.",
+          "optionsFrom": "languages",
+          "default": ""
         },
         "cleanUp": {
           "type": "boolean",
@@ -143,11 +127,16 @@
           "default": true
         },
         "words": {
-          "type": "string",
-          "title": "Words to know",
-          "description": "Names and terms you say often, separated by commas.",
-          "maxLength": 1000,
-          "default": ""
+          "type": "array",
+          "title": "Dictionary",
+          "description": "Names and terms you say. Add what the model writes instead after an equals sign: Parakeet = para keet, para-keet.",
+          "items": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "maxItems": 100,
+          "placeholder": "Add a word or name",
+          "default": []
         },
         "history": {
           "type": "boolean",
@@ -158,6 +147,55 @@
           "type": "string",
           "title": "Microphone",
           "optionsFrom": "microphones",
+          "default": ""
+        },
+        "translate": {
+          "type": "boolean",
+          "title": "Translate to English",
+          "description": "On speech models that translate. Speak any language and get English text.",
+          "default": false
+        },
+        "filterSilence": {
+          "type": "boolean",
+          "title": "Filter silence",
+          "description": "Skips the parts with no voice before the speech model hears them, and keeps a short stretch around each word.",
+          "default": true
+        },
+        "removeFillers": {
+          "type": "boolean",
+          "title": "Remove filler words",
+          "description": "Takes out sounds such as \"um\" and \"uh\". Works with no chat model.",
+          "default": true
+        },
+        "aroundCursor": {
+          "type": "boolean",
+          "title": "Read the text around the cursor",
+          "description": "Sends up to 1,024 characters on each side of the cursor to the chat model, to settle what you meant. A password field is never read.",
+          "default": true
+        },
+        "instructionsKind": {
+          "type": "string",
+          "title": "Instructions",
+          "enum": [
+            "Built-in",
+            "Your own"
+          ],
+          "default": "Built-in"
+        },
+        "instructions": {
+          "type": "string",
+          "title": "Your instructions",
+          "multiline": true,
+          "maxLength": 10000,
+          "placeholder": "Clean up this dictated text. Keep my words, fix the punctuation, and keep my last correction.",
+          "default": ""
+        },
+        "correction": {
+          "type": "string",
+          "title": "Correction word",
+          "description": "The word you say before a correction, such as \"sorry\" or \"scratch that\".",
+          "maxLength": 50,
+          "placeholder": "sorry",
           "default": ""
         }
       }
@@ -175,8 +213,30 @@
             "property": "microphone"
           },
           {
+            "kind": "tool",
+            "tool": "test_microphone",
+            "title": "Test microphone"
+          },
+          {
             "kind": "property",
             "property": "language"
+          },
+          {
+            "kind": "property",
+            "property": "translate"
+          }
+        ]
+      },
+      {
+        "title": "Recognition",
+        "items": [
+          {
+            "kind": "property",
+            "property": "filterSilence"
+          },
+          {
+            "kind": "property",
+            "property": "removeFillers"
           },
           {
             "kind": "property",
@@ -197,7 +257,43 @@
           },
           {
             "kind": "property",
-            "property": "styles"
+            "property": "styles",
+            "when": {
+              "property": "cleanUp",
+              "is": true
+            }
+          },
+          {
+            "kind": "property",
+            "property": "aroundCursor",
+            "when": {
+              "property": "cleanUp",
+              "is": true
+            }
+          },
+          {
+            "kind": "property",
+            "property": "correction",
+            "when": {
+              "property": "cleanUp",
+              "is": true
+            }
+          },
+          {
+            "kind": "property",
+            "property": "instructionsKind",
+            "when": {
+              "property": "cleanUp",
+              "is": true
+            }
+          },
+          {
+            "kind": "property",
+            "property": "instructions",
+            "when": {
+              "property": "instructionsKind",
+              "is": "Your own"
+            }
           }
         ]
       },
@@ -223,6 +319,12 @@
       "kind": "hotkey",
       "keys": "CommandOrControl+Shift+Space",
       "hold": true
+    },
+    {
+      "name": "cancel",
+      "kind": "hotkey",
+      "keys": "Escape",
+      "armed": false
     },
     {
       "name": "program",
@@ -314,6 +416,97 @@
       "visibility": [
         "app"
       ]
+    },
+    {
+      "name": "languages",
+      "title": "List languages",
+      "description": "The languages of the speech model in use.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": false,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "test_microphone",
+      "title": "Test microphone",
+      "description": "Opens the microphone test.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": false,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ],
+      "view": "mic-test"
+    },
+    {
+      "name": "mic_test_start",
+      "title": "Start the microphone test",
+      "description": "Records for up to ten seconds.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "mic_test_stop",
+      "title": "Stop the microphone test",
+      "description": "Ends the recording of the test.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "mic_test_sound",
+      "title": "Read the test's recording",
+      "description": "The sound of the microphone test.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": false,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "hear_again",
+      "title": "Hear a failed dictation again",
+      "description": "Transcribes the sound of the dictation that failed.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
     }
   ],
   "surfaces": [
@@ -333,6 +526,15 @@
       "entry": "views/history.js",
       "placements": [
         "popover"
+      ]
+    },
+    {
+      "id": "mic-test",
+      "kind": "view",
+      "title": "Test microphone",
+      "entry": "views/mic-test.js",
+      "placements": [
+        "inline"
       ]
     }
   ]

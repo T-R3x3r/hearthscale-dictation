@@ -6,8 +6,8 @@
  *  `note` a few words for a moment, and `gone` nothing at all. */
 export type HudState =
   | { kind: 'gone' }
-  | { kind: 'speaking'; words: string }
-  | { kind: 'working'; words: string }
+  | { kind: 'speaking'; words: string; tentative?: string }
+  | { kind: 'working'; words: string; tentative?: string }
   | { kind: 'note'; note: string };
 
 /** The loudness of one part of sound, from 0 to 1, and of five bands in it. */
@@ -28,4 +28,6 @@ export interface Entry {
 export interface History {
   entries: Entry[];
   keeps: boolean;
+  /** A dictation failed and its sound is still here to hear again. */
+  failed: boolean;
 }
