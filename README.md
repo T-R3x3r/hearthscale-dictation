@@ -47,7 +47,7 @@ With one key alone, press another key with it to cancel the dictation. Ctrl+C st
 
 ## When something fails
 
-If the speech model fails, History offers **Try again**, which hears the same recording again. **Test microphone** in Settings records ten seconds and plays them back, and the sound stays on this computer.
+If the speech model fails, History offers **Try again**, which hears the same recording again. **Test** beside the microphone in Settings records ten seconds and plays them back, and the sound stays on this computer.
 
 ## Permissions
 

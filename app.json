@@ -201,12 +201,11 @@
           },
           {
             "kind": "property",
-            "property": "microphone"
-          },
-          {
-            "kind": "tool",
-            "tool": "test_microphone",
-            "title": "Test microphone"
+            "property": "microphone",
+            "action": {
+              "tool": "test_microphone",
+              "title": "Test"
+            }
           },
           {
             "kind": "property",
@@ -289,12 +288,11 @@
         "items": [
           {
             "kind": "property",
-            "property": "history"
-          },
-          {
-            "kind": "tool",
-            "tool": "forget_all",
-            "title": "Clear history"
+            "property": "history",
+            "action": {
+              "tool": "forget_all",
+              "title": "Clear"
+            }
           }
         ]
       }
