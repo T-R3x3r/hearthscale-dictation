@@ -28,12 +28,11 @@ With one key alone, press another key with it to cancel the dictation. Ctrl+C st
 
 ## Models
 
-- **A speech model**, to hear you. Required. Under **Speech model** in **Settings > Apps > Dictation**, pick the languages you speak to see the models of Hugging Face that hear them, with their errors, their speed and their size. Test the one you use, and see what it wrote.
+- **A speech model**, to hear you. Required. Under **Models** in **Settings > Apps > Dictation**, choose your languages, then a model.
 - **A chat model**, to clean up the text. Optional. Gemma 4 E2B handles many languages.
 
 ## Recognition
 
-- **Language** lists the languages of the speech model you use.
 - **Translate to English** writes English from any language, on a speech model that translates.
 - **Filter silence** skips the parts with no voice before the speech model hears them.
 - **Remove filler words** takes out sounds such as "um" and "uh", with no chat model.

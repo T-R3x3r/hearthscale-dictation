@@ -107,13 +107,6 @@
           ],
           "default": "Automatic"
         },
-        "language": {
-          "type": "string",
-          "title": "Language",
-          "description": "The languages of the speech model in use. Detect lets a model that can tell the language by itself.",
-          "optionsFrom": "languages",
-          "default": ""
-        },
         "cleanUp": {
           "type": "boolean",
           "title": "Clean up text",
@@ -214,10 +207,6 @@
             "kind": "tool",
             "tool": "test_microphone",
             "title": "Test microphone"
-          },
-          {
-            "kind": "property",
-            "property": "language"
           },
           {
             "kind": "property",
@@ -404,21 +393,6 @@
       "name": "microphones",
       "title": "List microphones",
       "description": "The microphones of this computer.",
-      "input": {
-        "type": "object",
-        "properties": {},
-        "additionalProperties": false
-      },
-      "mutating": false,
-      "outbound": false,
-      "visibility": [
-        "app"
-      ]
-    },
-    {
-      "name": "languages",
-      "title": "List languages",
-      "description": "The languages of the speech model in use.",
       "input": {
         "type": "object",
         "properties": {},

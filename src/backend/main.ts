@@ -20,7 +20,6 @@ import { dictionaryOf, withAliases, withoutFillers, type Dictionary } from './wo
 interface Settings {
   keyBehaviour: 'Hold or tap' | 'Hold' | 'Tap';
   insert: 'Automatic' | 'Type' | 'Paste';
-  language: string;
   translate: boolean;
   filterSilence: boolean;
   removeFillers: boolean;
@@ -126,16 +125,16 @@ async function speechFacts() {
   return cards.find((card) => card.id === effective.card)?.speech ?? null;
 }
 
-/** The language a dictation asks for: the person's where the model hears it, and
- *  else the only one or none, for the model to tell. A model that cannot tell
- *  takes English, or its first. */
+/** The language a dictation asks for: the one the person speaks where the model
+ *  hears it, and else the model's only one or none, for the model to tell. A model
+ *  that cannot tell takes English, or its first. */
 async function languageNow(): Promise<string | null> {
   const facts = await speechFacts().catch(() => null);
   const known = facts?.languages ?? [];
   if (known.length === 1) return known[0]!;
-  if (settings.language && (known.length === 0 || known.includes(settings.language))) {
-    return settings.language;
-  }
+  const spoken = await ctx.models.languages().catch((): string[] => []);
+  const only = spoken.length === 1 ? spoken[0]! : null;
+  if (only && (known.length === 0 || known.includes(only))) return only;
   if (facts?.detects === false) return known.includes('en') ? 'en' : (known[0] ?? null);
   return null;
 }
@@ -463,26 +462,6 @@ const backend: Backend = {
         options: [
           { value: '', label: 'System default' },
           ...found.map(({ name }) => ({ value: name, label: name })),
-        ],
-      };
-    },
-    async languages() {
-      const facts = await speechFacts().catch(() => null);
-      const known = facts?.languages ?? [];
-      const named = new Intl.DisplayNames(['en'], { type: 'language' });
-      const unchosen =
-        facts?.detects === false && known.length > 0
-          ? known.includes('en')
-            ? 'en'
-            : known[0]!
-          : null;
-      return {
-        options: [
-          { value: '', label: unchosen ? (named.of(unchosen) ?? unchosen) : 'Detect' },
-          ...known
-            .filter((code) => code !== unchosen)
-            .map((code) => ({ value: code, label: named.of(code) ?? code }))
-            .sort((a, b) => a.label.localeCompare(b.label)),
         ],
       };
     },
