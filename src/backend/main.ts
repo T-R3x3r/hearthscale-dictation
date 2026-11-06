@@ -470,10 +470,17 @@ const backend: Backend = {
       const facts = await speechFacts().catch(() => null);
       const known = facts?.languages ?? [];
       const named = new Intl.DisplayNames(['en'], { type: 'language' });
+      const unchosen =
+        facts?.detects === false && known.length > 0
+          ? known.includes('en')
+            ? 'en'
+            : known[0]!
+          : null;
       return {
         options: [
-          ...(facts?.detects === false && known.length > 0 ? [] : [{ value: '', label: 'Detect' }]),
+          { value: '', label: unchosen ? (named.of(unchosen) ?? unchosen) : 'Detect' },
           ...known
+            .filter((code) => code !== unchosen)
             .map((code) => ({ value: code, label: named.of(code) ?? code }))
             .sort((a, b) => a.label.localeCompare(b.label)),
         ],
