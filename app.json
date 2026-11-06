@@ -31,11 +31,9 @@
       },
       {
         "title": "Download a speech model.",
-        "text": "Parakeet hears many languages and runs on this computer.",
+        "text": "This model fits your language and runs on this computer. Choose another in Settings.",
         "download": {
-          "kind": "transcription",
-          "repo": "nvidia/parakeet-tdt-0.6b-v3",
-          "file": "parakeet-tdt-0.6b-v3.q8_0.gguf"
+          "best": "transcription"
         }
       },
       {
