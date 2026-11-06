@@ -291,7 +291,11 @@
             "property": "history",
             "action": {
               "tool": "forget_all",
-              "title": "Clear"
+              "title": "Clear",
+              "confirm": {
+                "title": "Clear the history?",
+                "body": "Every dictation in the history goes. This cannot be undone."
+              }
             }
           }
         ]
