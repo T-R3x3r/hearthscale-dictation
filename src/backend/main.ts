@@ -194,6 +194,7 @@ function start(): void {
   armEscape();
   const speaking = () => {
     void warmUp();
+    readyAround();
     tell({ kind: 'speaking', words: '' });
   };
   if (keyAlone) {
@@ -319,9 +320,11 @@ async function hearAgain(): Promise<string> {
   const sound = failedSound;
   if (!sound) return 'No dictation waits to be heard again.';
   const { words, aliases } = dictionary();
+  const language = await languageNow();
   const stream = await ctx.models.listen({
     pauses: false,
-    words,
+    ...(language && { language }),
+    ...(words.length > 0 && { words }),
     ...(Object.keys(aliases).length > 0 && { aliases }),
     translate: settings.translate,
   });
@@ -340,6 +343,12 @@ async function hearAgain(): Promise<string> {
   failedSound = null;
   void ctx.events.emit({ name: 'history', data: {}, durable: false });
   return 'The text is in History.';
+}
+
+/** A browser gives the text of a field only a moment after a program first asks,
+ *  so an ask while the person speaks readies the one at the end. */
+function readyAround(): void {
+  if (settings.cleanUp && settings.aroundCursor) void ctx.desktop.around().catch(() => null);
 }
 
 /** Ends the dictation that hears, and sends its text on its way to the window

@@ -66,6 +66,7 @@ export function History({ host, locale }: { host: Host; locale: string }) {
   const [kept, setKept] = useState<Kept | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [hearing, setHearing] = useState(false);
+  const [notHeard, setNotHeard] = useState<string | null>(null);
 
   const load = useCallback(() => {
     void host
@@ -81,9 +82,10 @@ export function History({ host, locale }: { host: Host; locale: string }) {
 
   const again = () => {
     setHearing(true);
+    setNotHeard(null);
     void host
       .tool<string>('hear_again')
-      .catch((e: unknown) => setProblem(words(e)))
+      .catch((e: unknown) => setNotHeard(words(e)))
       .finally(() => {
         setHearing(false);
         load();
@@ -94,7 +96,7 @@ export function History({ host, locale }: { host: Host; locale: string }) {
   if (!kept) return null;
   const failed = kept.failed && (
     <div className="history-again">
-      <span>The last dictation did not finish.</span>
+      <span>{notHeard ?? 'The last dictation did not finish.'}</span>
       <Button disabled={hearing} onClick={again}>
         Try again
       </Button>

@@ -50,17 +50,44 @@ const BY_LANGUAGE: Record<string, string[]> = {
   fr: ['euh'],
 };
 
+/** Common words that tell apart the languages with filler words of their own. */
+const COMMON_WORDS: Record<string, string[]> = {
+  en: ['the', 'i', 'we', 'you', 'is', 'and', 'to', 'that', 'it', 'this', 'of', 'so'],
+  de: ['der', 'die', 'das', 'ich', 'wir', 'ist', 'und', 'zu', 'nicht', 'ein', 'eine', 'mit'],
+  fr: ['le', 'la', 'les', 'je', 'nous', 'est', 'et', 'que', 'pas', 'une', 'des', 'pour'],
+};
+
+/** The language among those of `BY_LANGUAGE` whose common words a text holds most
+ *  of, or null where no single one leads. */
+function languageOf(text: string): string | null {
+  const said = text.toLowerCase().match(/\p{L}+/gu) ?? [];
+  const counts = Object.entries(COMMON_WORDS)
+    .map(([language, words]) => ({
+      language,
+      count: said.filter((word) => words.includes(word)).length,
+    }))
+    .sort((a, b) => b.count - a.count);
+  return counts[0]!.count > counts[1]!.count ? counts[0]!.language : null;
+}
+
+/** Marks where a filler with a capital letter stood. */
+const CAPITAL = '';
+
 /** Takes the hesitation sounds out of a text, and leaves a correction word
- *  where it is. */
+ *  where it is. A language of null is told from the text. The word after a
+ *  filler that began a sentence takes the capital letter. */
 export function withoutFillers(text: string, language: string | null, keep: string): string {
-  const fillers = [...ANY_LANGUAGE, ...(BY_LANGUAGE[language ?? ''] ?? [])];
+  const fillers = [...ANY_LANGUAGE, ...(BY_LANGUAGE[language ?? languageOf(text) ?? ''] ?? [])];
   const kept = keep.trim().split(/\s+/).filter(Boolean).map(escaped).join('\\s+');
   const pattern = new RegExp(
     `(?<![\\p{L}\\p{N}_])(?:(${kept || '(?!)'})(?![\\p{L}\\p{N}_])|(?:${fillers.map(escaped).join('|')})(?![\\p{L}\\p{N}_])[,.]?)`,
     'giu',
   );
   return text
-    .replace(pattern, (_found, word: string | undefined) => word ?? '')
+    .replace(pattern, (found, word: string | undefined) =>
+      word ?? (found[0] === found[0]!.toLowerCase() ? '' : CAPITAL),
+    )
+    .replace(/\s*(\p{L})?/gu, (_found, next?: string) => next?.toUpperCase() ?? '')
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
