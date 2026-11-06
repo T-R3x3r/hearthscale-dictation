@@ -16,8 +16,9 @@ function levelOf(part: Extract<CapturedPart, { kind: 'audio' }>): number {
   return Math.max(0, Math.min(1, (part.level + 52) / 30)) ** 0.7;
 }
 
-/** Ends the recording; answers its length in seconds. */
-export async function stopTest(ctx: AppContext): Promise<number> {
+/** Ends the recording, and tells the view unless a new one replaces it; answers
+ *  its length in seconds. */
+export async function stopTest(ctx: AppContext, tell = true): Promise<number> {
   if (timer) clearTimeout(timer);
   timer = null;
   unhook?.();
@@ -26,13 +27,13 @@ export async function stopTest(ctx: AppContext): Promise<number> {
   capture = null;
   if (running) {
     await ctx.capture.stop(running).catch(() => {});
-    void ctx.events.emit({ name: 'mic-test', data: { recording: false }, durable: false });
+    if (tell) void ctx.events.emit({ name: 'mic-test', data: { recording: false }, durable: false });
   }
   return (parts.length * PART_MS) / 1000;
 }
 
 export async function startTest(ctx: AppContext, microphone: string | null): Promise<void> {
-  await stopTest(ctx);
+  await stopTest(ctx, false);
   parts = [];
   const found = microphone
     ? (await ctx.capture.devices('microphone')).find((device) => device.name === microphone)

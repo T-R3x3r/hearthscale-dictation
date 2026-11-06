@@ -48,17 +48,7 @@ body,
   font-size: var(--fs-body);
 }
 
-.mic-test-root {
-  height: 100%;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
-.mic-test {
-  width: min(100%, calc(var(--space) * 100));
-}
 
 .mic-test-body {
   display: flex;
