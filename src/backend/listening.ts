@@ -84,7 +84,7 @@ export class Dictation {
 
   constructor(
     private readonly ctx: AppContext,
-    options: { language: string | null; words: string[] },
+    options: { language: string | null; words: string[]; device: string | null },
     private readonly hooks: Hooks,
   ) {
     this.done = new Promise((resolve) => (this.finish = resolve));
@@ -98,9 +98,25 @@ export class Dictation {
         });
       }),
     ];
-    this.capture = ctx.capture.start('microphone', { part: PART_MS }).then(({ capture }) => capture);
+    this.capture = this.openMicrophone(options.device);
     this.capture.catch((e: unknown) => hooks.failed(words(e)));
     this.stream.catch((e: unknown) => hooks.failed(words(e)));
+  }
+
+  /** Starts the microphone the person named, or the system's. A device keeps
+   *  its id only while the window runs, so the setting holds its name. */
+  private async openMicrophone(name: string | null): Promise<string> {
+    const found = name
+      ? (await this.ctx.capture.devices('microphone')).find((device) => device.name === name)
+      : undefined;
+    if (name && !found) {
+      throw new Error(`The microphone "${name}" is not connected. Choose another in Settings.`);
+    }
+    const { capture } = await this.ctx.capture.start('microphone', {
+      part: PART_MS,
+      ...(found && { device: found.id }),
+    });
+    return capture;
   }
 
   /** Opens a stream, which a model that takes no words refuses with words. */

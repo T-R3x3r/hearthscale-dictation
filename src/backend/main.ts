@@ -19,6 +19,7 @@ interface Settings {
   keyBehaviour: 'Hold or tap' | 'Hold' | 'Tap';
   insert: 'Automatic' | 'Type' | 'Paste';
   language: string;
+  microphone: string;
   cleanUp: boolean;
   styles: boolean;
   words: string;
@@ -142,7 +143,11 @@ function start(): void {
     failed: null,
     dictation: new Dictation(
       ctx,
-      { language: LANGUAGES[settings.language] ?? null, words: wordsToKnow() },
+      {
+        language: LANGUAGES[settings.language] ?? null,
+        words: wordsToKnow(),
+        device: settings.microphone || null,
+      },
       {
         levels: (levels: Levels) =>
           void ctx.events.emit({ name: 'levels', data: levels, durable: false }),
@@ -329,6 +334,15 @@ const backend: Backend = {
   tools: {
     hud_state: () => ({ state: hud }),
     history: async () => ({ ...(await history()) }),
+    async microphones() {
+      const found = await ctx.capture.devices('microphone');
+      return {
+        options: [
+          { value: '', label: 'System default' },
+          ...found.map(({ name }) => ({ value: name, label: name })),
+        ],
+      };
+    },
     async forget(input) {
       await ctx.db.exec('DELETE FROM entries WHERE id = ?', [(input as { id: number }).id]);
       return { forgotten: true };

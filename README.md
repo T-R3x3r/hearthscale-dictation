@@ -33,7 +33,7 @@ Download them from the introduction or in Hearthscale Server, then choose them i
 
 ## Permissions
 
-- **Your microphone**, the system's default, only while you dictate.
+- **Your microphone**, only while you dictate. Choose one in **Settings > Apps > Dictation**, or use the system's default.
 - **To type into your other programs**, to insert the text.
 - **To show a view over your other programs**, while you speak.
 - **The name of the program in front**, to match the style of the text. It goes to your chat model and nowhere else.

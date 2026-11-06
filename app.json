@@ -153,6 +153,12 @@
           "type": "boolean",
           "title": "Keep history",
           "default": true
+        },
+        "microphone": {
+          "type": "string",
+          "title": "Microphone",
+          "optionsFrom": "microphones",
+          "default": ""
         }
       }
     },
@@ -163,6 +169,10 @@
           {
             "kind": "property",
             "property": "keyBehaviour"
+          },
+          {
+            "kind": "property",
+            "property": "microphone"
           },
           {
             "kind": "property",
@@ -285,6 +295,21 @@
         "additionalProperties": false
       },
       "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "microphones",
+      "title": "List microphones",
+      "description": "The microphones of this computer.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": false,
       "outbound": false,
       "visibility": [
         "app"
