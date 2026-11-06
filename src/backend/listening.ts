@@ -94,6 +94,7 @@ export class Dictation {
   private tentative = '';
   private kept: Uint8Array[] = [];
   private ended = false;
+  private firstPart = false;
   private finish = () => {};
   private readonly done: Promise<void>;
 
@@ -166,6 +167,10 @@ export class Dictation {
     if (part.kind !== 'audio') return;
     void this.capture.then((capture) => {
       if (part.capture !== capture) return;
+      if (!this.firstPart) {
+        this.firstPart = true;
+        void this.ctx.log('info', `the first sound came ${Date.now() - this.startedAt} ms after the press`);
+      }
       if (part.voice) {
         this.voiceMs += PART_MS;
         this.lastVoiceAt = Date.now();

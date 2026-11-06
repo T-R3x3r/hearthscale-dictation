@@ -417,7 +417,7 @@ async function history(): Promise<History> {
 /** Follows the hotkey's keys: a key alone holds the HUD back a moment. */
 function keysChanged(hotkeys: { name: string; keys?: string }[]): void {
   const keys = hotkeys.find((key) => key.name === 'dictate')?.keys;
-  keyAlone = !!keys && !keys.includes('+');
+  keyAlone = !!keys && (!keys.includes('+') || /Left|Right/.test(keys));
 }
 
 const backend: Backend = {
