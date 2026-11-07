@@ -208,17 +208,21 @@ plate.addEventListener('animationend', () => {
   }
 });
 
+let told = false;
+
 app.fallbackNotificationHandler = async ({ method, params }) => {
   if (method !== 'hearthscale/events/event') return;
   const { name, data } = params as { name: string; data: unknown };
-  if (name === 'hud') show(data as HudState);
-  else if (name === 'levels') {
+  if (name === 'hud') {
+    told = true;
+    show(data as HudState);
+  } else if (name === 'levels') {
     parts.push({ ...(data as Levels), at: performance.now() / 1000 });
     if (parts.length > 40) parts.shift();
   }
 };
 
 await app.connect(new PostMessageTransport(window.parent, window.parent));
-const first = await app.callServerTool({ name: 'hud_state', arguments: {} });
 fit(false);
-show((first.structuredContent as { state: HudState }).state);
+const first = await app.callServerTool({ name: 'hud_state', arguments: {} });
+if (!told) show((first.structuredContent as { state: HudState }).state);

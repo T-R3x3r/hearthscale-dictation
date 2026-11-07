@@ -1,6 +1,6 @@
 /**
  * The history at the tray icon: each dictation this computer keeps, to copy
- * again or remove. It also holds the text that could not be inserted.
+ * again or remove, and the last text that reached no program.
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -16,50 +16,42 @@ import {
 import type { Entry, History as Kept } from '../shared/types.ts';
 import { words, type Host } from './host.ts';
 
-function Row({
-  entry,
-  locale,
-  host,
-  gone,
-}: {
-  entry: Entry;
-  locale: string;
-  host: Host;
-  gone: () => void;
-}) {
+function Row({ text, sub, remove }: { text: string; sub?: string; remove?: () => void }) {
   const tips = useFloatingTips();
   const copy = tips('copy', 'Copy');
-  const remove = tips('remove', 'Remove');
-  const when = new Date(entry.at).toLocaleString(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  const removal = tips('remove', 'Remove');
   return (
     <ListRow
-      title={<span className="history-text">{entry.text}</span>}
-      sub={entry.program ? `${when}, ${entry.program}` : when}
+      title={<span className="history-text">{text}</span>}
+      {...(sub && { sub })}
       actions={
         <>
           <IconButton
             aria-label="Copy"
             {...copy.hover}
-            onClick={() => void navigator.clipboard.writeText(entry.text)}
+            onClick={() => void navigator.clipboard.writeText(text)}
           >
             <Icon name="file-copy-line" size={14} />
           </IconButton>
-          <IconButton
-            aria-label="Remove"
-            {...remove.hover}
-            onClick={() => void host.tool('forget', { id: entry.id }).then(gone)}
-          >
-            <Icon name="delete-bin-line" size={14} />
-          </IconButton>
+          {remove && (
+            <IconButton aria-label="Remove" {...removal.hover} onClick={remove}>
+              <Icon name="delete-bin-line" size={14} />
+            </IconButton>
+          )}
           {copy.tip}
-          {remove.tip}
+          {removal.tip}
         </>
       }
     />
   );
+}
+
+function subOf(entry: Entry, locale: string): string {
+  const when = new Date(entry.at).toLocaleString(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  return entry.program ? `${when}, ${entry.program}` : when;
 }
 
 export function History({ host, locale }: { host: Host; locale: string }) {
@@ -84,7 +76,7 @@ export function History({ host, locale }: { host: Host; locale: string }) {
     setHearing(true);
     setNotHeard(null);
     void host
-      .tool<string>('hear_again')
+      .tool('hear_again')
       .catch((e: unknown) => setNotHeard(words(e)))
       .finally(() => {
         setHearing(false);
@@ -102,7 +94,7 @@ export function History({ host, locale }: { host: Host; locale: string }) {
       </Button>
     </div>
   );
-  if (kept.entries.length === 0) {
+  if (kept.entries.length === 0 && kept.text === null) {
     return (
       <>
         {failed}
@@ -116,8 +108,14 @@ export function History({ host, locale }: { host: Host; locale: string }) {
   return (
     <OverlayScroll className="history-list">
       {failed}
+      {kept.text !== null && <Row text={kept.text} />}
       {kept.entries.map((entry) => (
-        <Row key={entry.id} entry={entry} locale={locale} host={host} gone={load} />
+        <Row
+          key={entry.id}
+          text={entry.text}
+          sub={subOf(entry, locale)}
+          remove={() => void host.tool('forget', { id: entry.id }).then(load)}
+        />
       ))}
     </OverlayScroll>
   );

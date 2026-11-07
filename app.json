@@ -38,7 +38,7 @@
       },
       {
         "title": "Download a chat model.",
-        "text": "Gemma removes filler words and keeps your last correction. Without a chat model, the text stays as spoken.",
+        "text": "A chat model removes filler words and keeps your last correction.",
         "download": {
           "kind": "chat",
           "repo": "google/gemma-4-E2B-it-qat-q4_0-gguf",
@@ -72,6 +72,7 @@
     "events",
     "models",
     "capture.microphone",
+    "desktop.around",
     "desktop.actions",
     "desktop.overlay"
   ],
@@ -110,6 +111,7 @@
         "cleanUp": {
           "type": "boolean",
           "title": "Clean up text",
+          "description": "Runs on your default chat model. A cloud model runs only if you choose it for Dictation.",
           "default": true
         },
         "styles": {
@@ -176,6 +178,7 @@
         "instructions": {
           "type": "string",
           "title": "Your instructions",
+          "description": "Text that keeps fewer than half of your words is not used.",
           "multiline": true,
           "maxLength": 10000,
           "placeholder": "Clean up this dictated text. Keep my words, fix the punctuation, and keep my last correction.",
@@ -294,7 +297,7 @@
               "title": "Clear",
               "confirm": {
                 "title": "Clear the history?",
-                "body": "Every dictation in the history goes. This cannot be undone."
+                "body": "This removes every dictation. You cannot undo this."
               }
             }
           }

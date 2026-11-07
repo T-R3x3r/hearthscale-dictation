@@ -10,10 +10,10 @@
  * the text. A key alone also fires `cancelled` when a second key goes down with
  * it: the person meant that combination, so the dictation is dropped.
  */
-import type { AppContext, Backend, HotkeyFire, ProgramFire } from '@hearthscale/app';
+import type { AppContext, Backend, HotkeyFire, ModelKind, ProgramFire } from '@hearthscale/app';
 import type { Entry, History, HudState, Levels } from '../shared/types.ts';
-import { cleanUp, isTerminal, type Around } from './cleanup.ts';
-import { Dictation, words as reason } from './listening.ts';
+import { cleanUp, runsLines, type Around } from './cleanup.ts';
+import { Dictation, transcribe, words as reason, type Heard } from './listening.ts';
 import { startTest, stopTest, testSound } from './micTest.ts';
 import { dictionaryOf, withAliases, withoutFillers, type Dictionary } from './words.ts';
 
@@ -43,13 +43,21 @@ interface Hearing {
   release: () => void;
   /** Why it stopped before the text came, in words. */
   failed: string | null;
+  language: Promise<string | null>;
+  /** The chat model that may clean up the text, by its card. */
+  chat: Promise<string | null>;
 }
 
 /** A press shorter than this, in milliseconds, is a tap, which keeps the
  *  dictation going until the next press. */
 const TAP_MS = 300;
-/** The longest text that is typed; pasting is faster above it. */
+/** A press and a release closer than this, in milliseconds, came together, as a
+ *  backend that starts hears them. No hand taps this fast. */
+const HANDED_OVER_MS = 30;
+/** The longest text that Automatic types; pasting is faster above it. */
 const TYPED_MOST = 200;
+/** The most characters the platform types at once. */
+const TYPE_LIMIT = 2000;
 /** How long a note stays on the HUD, in milliseconds. */
 const NOTE_MS = 2400;
 /** How long a key alone waits before the HUD shows, in milliseconds: long
@@ -71,12 +79,16 @@ let current: Hearing | null = null;
 /** The texts on their way, one after the other. */
 let landing: Promise<void> = Promise.resolve();
 let landings = 0;
+/** The dictation whose text is next to land. */
+let atTurn: Hearing | null = null;
 /** Ends the clean up that runs now, whose words then go in as they were heard. */
 let skipCleanUp: (() => void) | null = null;
 /** The hotkey that cancels holds its key. */
 let armed = false;
 /** The sound of the last dictation that failed, until the next one lands. */
 let failedSound: Uint8Array[] | null = null;
+/** The last text that no entry holds, until the next one lands. */
+let lastText: string | null = null;
 
 function tell(state: HudState): void {
   hud = state;
@@ -89,6 +101,8 @@ function note(words: string): void {
   tell({ kind: 'note', note: words });
   noteTimer = setTimeout(() => tell({ kind: 'gone' }), NOTE_MS);
 }
+
+const historyChanged = () => void ctx.events.emit({ name: 'history', data: {}, durable: false });
 
 /** Opens the HUD, which then stays and hides itself between dictations. */
 function showHud(): Promise<void> {
@@ -107,6 +121,15 @@ function showHud(): Promise<void> {
 
 const dictionary = (): Dictionary => dictionaryOf(settings.words);
 
+const heardWith = (language: Promise<string | null>): Heard => ({
+  language,
+  dictionary: dictionary(),
+  translate: settings.translate,
+  filterSilence: settings.filterSilence,
+});
+
+const oneLine = (text: string) => text.replace(/\s*\n+\s*/g, ' ');
+
 /** Holds Escape while a dictation runs, and only then. */
 function armEscape(): void {
   const wanted = current !== null || landings > 0;
@@ -117,34 +140,56 @@ function armEscape(): void {
     .catch((e: unknown) => void ctx.log('warn', `Escape was not held: ${reason(e)}`));
 }
 
-/** What the card of the transcription model states. */
-async function speechFacts() {
-  const effective = await ctx.models.effective('transcription');
-  if (effective.card === null) return null;
-  const { cards } = await ctx.models.list({ kind: 'transcription' });
-  return cards.find((card) => card.id === effective.card)?.speech ?? null;
+/** The model this app runs a kind on, and where the choice comes from. */
+async function modelOf(kind: ModelKind) {
+  const { cards, chosen } = await ctx.models.list({ kind });
+  const choice = chosen[kind];
+  if (!choice || choice.card === null) return null;
+  const { card: id, source } = choice;
+  const card = cards.find((listed) => listed.id === id);
+  return card ? { card, source } : null;
 }
 
 /** The language a dictation asks for: the one the person speaks where the model
  *  hears it, and else the model's only one or none, for the model to tell. A model
- *  that cannot tell takes English, or its first. */
+ *  that cannot tell takes the first language the person speaks that it hears, or
+ *  English, or its first. */
 async function languageNow(): Promise<string | null> {
-  const facts = await speechFacts().catch(() => null);
+  const model = await modelOf('transcription').catch(() => null);
+  const facts = model?.card.speech;
   const known = facts?.languages ?? [];
   if (known.length === 1) return known[0]!;
   const spoken = await ctx.models.languages().catch((): string[] => []);
   const only = spoken.length === 1 ? spoken[0]! : null;
   if (only && (known.length === 0 || known.includes(only))) return only;
-  if (facts?.detects === false) return known.includes('en') ? 'en' : (known[0] ?? null);
-  return null;
+  if (facts?.detects !== false) return null;
+  return (
+    spoken.find((language) => known.includes(language)) ??
+    (known.includes('en') ? 'en' : (known[0] ?? null))
+  );
+}
+
+/** The chat model the clean up may use. The words and the text around the cursor
+ *  reach a cloud model only where the person chose it for this app. */
+async function chatCard(): Promise<string | null> {
+  if (!settings.cleanUp) return null;
+  const model = await modelOf('chat').catch(() => null);
+  if (!model) return null;
+  if (model.card.location === 'cloud' && model.source !== 'app') {
+    void ctx.log('info', 'the clean up skips a cloud model that was not chosen for this app');
+    return null;
+  }
+  return model.card.id;
 }
 
 /** Loads a cold chat model while the person speaks, so the clean up does not
  *  wait for it after they let go. */
-async function warmUp(): Promise<void> {
-  if (!settings.cleanUp || 'reason' in (await ctx.models.effective('chat'))) return;
+async function warmUp(chat: Promise<string | null>): Promise<void> {
+  const model = await chat;
+  if (!model) return;
   try {
     const answer = ctx.models.complete({
+      model,
       messages: [{ role: 'user', content: 'ok' }],
       reasoning: 'none',
       sampling: { maxTokens: 1 },
@@ -155,45 +200,46 @@ async function warmUp(): Promise<void> {
   }
 }
 
+/** The text around the cursor, where the clean up may read it. A browser gives
+ *  the text of a field only a moment after a program first asks, so an ask while
+ *  the person speaks readies the one at the end. */
+const aroundNow = (chat: Promise<string | null>): Promise<Around | null> =>
+  chat
+    .then((model) => (model && settings.aroundCursor ? ctx.desktop.around() : null))
+    .catch(() => null);
+
 function start(): void {
   void showHud();
   let release = () => {};
   const letGo = new Promise<void>((resolve) => (release = resolve));
+  const language = languageNow();
   const hearing: Hearing = {
     pressedAt: Date.now(),
     letGo,
     release,
     failed: null,
-    dictation: new Dictation(
-      ctx,
-      {
-        language: languageNow(),
-        dictionary: dictionary(),
-        device: settings.microphone || null,
-        translate: settings.translate,
-        filterSilence: settings.filterSilence,
+    language,
+    chat: chatCard(),
+    dictation: new Dictation(ctx, heardWith(language), settings.microphone || null, {
+      levels: (levels: Levels) =>
+        void ctx.events.emit({ name: 'levels', data: levels, durable: false }),
+      words: (said, tentative) => {
+        if (current && current !== hearing) return;
+        if (hud.kind === 'speaking' || hud.kind === 'working') {
+          tell({ ...hud, words: said, tentative });
+        }
       },
-      {
-        levels: (levels: Levels) =>
-          void ctx.events.emit({ name: 'levels', data: levels, durable: false }),
-        words: (said, tentative) => {
-          if (current && current !== hearing) return;
-          if (hud.kind === 'speaking' || hud.kind === 'working') {
-            tell({ ...hud, words: said, tentative });
-          }
-        },
-        failed: (why) => fail(hearing, why),
-        silent: () => {
-          if (current === hearing) finish();
-        },
+      failed: (why) => fail(hearing, why),
+      unattended: () => {
+        if (current === hearing) finish(false);
       },
-    ),
+    }),
   };
   current = hearing;
   armEscape();
   const speaking = () => {
-    void warmUp();
-    readyAround();
+    void warmUp(hearing.chat);
+    void aroundNow(hearing.chat);
     tell({ kind: 'speaking', words: '' });
   };
   if (keyAlone) {
@@ -221,151 +267,141 @@ function keepFailed(hearing: Hearing): void {
   const sound = hearing.dictation.sound();
   if (sound.length === 0) return;
   failedSound = sound;
-  void ctx.events.emit({ name: 'history', data: {}, durable: false });
+  historyChanged();
 }
 
 /** Puts the text in the window `front`. A typed line break is the Enter key,
  *  which sends a message in a chat program, so a text of several lines goes by
  *  paste, or as one line when the person asked for typing. */
-async function insert(text: string, front: string | null): Promise<void> {
-  const held = front ? { front } : {};
-  if (settings.insert === 'Type') {
-    await ctx.desktop.type(text.replace(/\s*\n+\s*/g, ' '), held);
-  } else if (settings.insert === 'Paste' || text.includes('\n') || text.length > TYPED_MOST) {
-    await ctx.desktop.paste(text, held);
-  } else await ctx.desktop.type(text, held);
+async function insert(text: string, front: string): Promise<void> {
+  const byChoice = settings.insert === 'Type';
+  const line = byChoice ? oneLine(text) : text;
+  const typed = byChoice
+    ? line.length <= TYPE_LIMIT
+    : settings.insert === 'Automatic' && !line.includes('\n') && line.length <= TYPED_MOST;
+  if (typed) await ctx.desktop.type(line, { front });
+  else await ctx.desktop.paste(line, { front });
 }
 
+/** Keeps a text where History shows it: an entry, or in memory while the history
+ *  is off or cannot take it. */
 async function remember(text: string): Promise<void> {
-  if (!settings.history) return;
-  try {
-    await ctx.db.exec('INSERT INTO entries (at, text, program) VALUES (?, ?, ?)', [
-      Date.now(),
-      text,
-      program,
-    ]);
-    await ctx.db.exec(
-      'DELETE FROM entries WHERE id NOT IN (SELECT id FROM entries ORDER BY id DESC LIMIT ?)',
-      [HISTORY_MOST],
-    );
-    void ctx.events.emit({ name: 'history', data: {}, durable: false });
-  } catch (e) {
-    void ctx.log('warn', `the history kept nothing: ${reason(e)}`);
-  }
+  if (settings.history) {
+    try {
+      await ctx.db.exec('INSERT INTO entries (at, text, program) VALUES (?, ?, ?)', [
+        Date.now(),
+        text,
+        program,
+      ]);
+      await ctx.db.exec(
+        'DELETE FROM entries WHERE id NOT IN (SELECT id FROM entries ORDER BY id DESC LIMIT ?)',
+        [HISTORY_MOST],
+      );
+    } catch (e) {
+      void ctx.log('warn', `the history kept nothing: ${reason(e)}`);
+      lastText = text;
+    }
+  } else lastText = text;
+  historyChanged();
 }
 
 /** Lands one dictation's text; answers what the HUD says of it, if anything. */
 async function land(
   hearing: Hearing,
+  ended: Promise<string | null>,
   front: string | null,
   around: Promise<Around | null>,
 ): Promise<string | null> {
-  try {
-    const heard = await written(await hearing.dictation.end());
-    if (!heard) return hearing.failed ?? 'No speech heard.';
-    const clean = await cleaned(heard, around);
-    const text = isTerminal(program) ? clean.replace(/\s*\n+\s*/g, ' ') : clean;
-    await remember(text);
-    if (failedSound) {
-      failedSound = null;
-      void ctx.events.emit({ name: 'history', data: {}, durable: false });
-    }
+  const said = await ended;
+  if (said === null) return hearing.failed;
+  const heard = written(said, await hearing.language);
+  if (!heard) return 'No speech heard.';
+  const field = await around;
+  const secret = field?.password === true;
+  const skip = new AbortController();
+  skipCleanUp = () => skip.abort();
+  const clean = secret ? heard : await cleaned(heard, hearing.chat, field, skip.signal);
+  skipCleanUp = null;
+  const text = runsLines(program) ? oneLine(clean) : clean;
+  failedSound = null;
+  if (!secret) await remember(text);
+  if (front) {
     await current?.letGo;
     try {
       await insert(text, front);
+      if (lastText !== null) {
+        lastText = null;
+        historyChanged();
+      }
+      return null;
     } catch (e) {
       void ctx.log('warn', `the text was not inserted: ${reason(e)}`);
-      return settings.history ? 'The text is in History.' : 'The text could not be inserted.';
     }
-    return null;
-  } catch (e) {
-    void ctx.log('warn', reason(e));
-    keepFailed(hearing);
-    return reason(e);
   }
+  return secret ? 'The text could not be inserted.' : 'The text is in History.';
 }
 
 /** The heard words without their filler sounds, where the person wants them out. */
-async function written(heard: string): Promise<string> {
-  if (!settings.removeFillers || !heard) return heard;
-  return withoutFillers(heard, await languageNow(), settings.correction);
+function written(heard: string, language: string | null): string {
+  return settings.removeFillers ? withoutFillers(heard, language, settings.correction) : heard;
 }
 
-/** The heard words after the chat model, where the person wants it and has one. */
-async function cleaned(heard: string, around: Promise<Around | null>): Promise<string> {
-  const chat = await ctx.models.effective('chat');
-  if (!settings.cleanUp || chat.card === null) return heard;
-  const skip = new AbortController();
-  skipCleanUp = () => skip.abort();
-  try {
-    const { words, aliases } = dictionary();
-    const clean = await cleanUp(ctx, heard, {
-      program,
-      styles: settings.styles,
-      words,
-      instructions: settings.instructionsKind === 'Your own' ? settings.instructions : null,
-      correction: settings.correction,
-      around: await around,
-      skip: skip.signal,
-    });
-    return withAliases(clean, aliases);
-  } finally {
-    skipCleanUp = null;
-  }
+/** The heard words after the chat model, where the person wants it and may use it. */
+async function cleaned(
+  heard: string,
+  chat: Promise<string | null>,
+  around: Around | null,
+  skip: AbortSignal,
+): Promise<string> {
+  const model = await chat;
+  if (!model) return heard;
+  const { words, aliases } = dictionary();
+  const clean = await cleanUp(ctx, heard, {
+    model,
+    program,
+    styles: settings.styles,
+    words,
+    instructions: settings.instructionsKind === 'Your own' ? settings.instructions : null,
+    correction: settings.correction,
+    around,
+    skip,
+  });
+  return withAliases(clean, aliases);
 }
 
 /** Hears the sound of the dictation that failed again; the text goes to History. */
-async function hearAgain(): Promise<string> {
+async function hearAgain(): Promise<void> {
   const sound = failedSound;
-  if (!sound) return 'No dictation waits to be heard again.';
-  const { words, aliases } = dictionary();
-  const language = await languageNow();
-  const stream = await ctx.models.listen({
-    pauses: false,
-    ...(language && { language }),
-    ...(words.length > 0 && { words }),
-    ...(Object.keys(aliases).length > 0 && { aliases }),
-    translate: settings.translate,
-  });
-  const texts: string[] = [];
-  const done = new Promise<void>((resolve, refuse) => {
-    stream.on('segment', ({ text }) => texts.push(text));
-    stream.on('error', ({ message }) => refuse(new Error(message)));
-    stream.on('done', () => resolve());
-  });
-  for (const part of sound) await stream.write(part);
-  await stream.end();
-  await done;
-  const text = await written(texts.join(' ').trim());
-  if (!text) return 'No speech heard.';
-  await remember(await cleaned(text, Promise.resolve(null)));
+  if (!sound) return;
+  const language = languageNow();
+  const text = written(await transcribe(ctx, heardWith(language), sound), await language);
+  if (!text) throw new Error('No speech heard.');
+  const clean = await cleaned(
+    text,
+    chatCard(),
+    null,
+    new AbortController().signal,
+  );
   failedSound = null;
-  void ctx.events.emit({ name: 'history', data: {}, durable: false });
-  return 'The text is in History.';
+  await remember(clean);
 }
 
-/** A browser gives the text of a field only a moment after a program first asks,
- *  so an ask while the person speaks readies the one at the end. */
-function readyAround(): void {
-  if (settings.cleanUp && settings.aroundCursor) void ctx.desktop.around().catch(() => null);
-}
-
-/** Ends the dictation that hears, and sends its text on its way to the window
- *  in front now. */
-function finish(): void {
+/** Ends the dictation that hears and sends its text on its way: to the window in
+ *  front now where the person ended it, and else only to History. */
+function finish(byPerson = true): void {
   const hearing = current;
   if (!hearing) return;
   current = null;
   hearing.release();
   landings += 1;
   tell({ kind: 'working', words: hud.kind === 'speaking' ? hud.words : '' });
-  const front = ctx.desktop.front().catch(() => null);
-  const around =
-    settings.cleanUp && settings.aroundCursor
-      ? ctx.desktop.around().catch(() => null)
-      : Promise.resolve(null);
+  const ended = hearing.dictation.end();
+  const front = byPerson ? ctx.desktop.front().catch(() => null) : Promise.resolve(null);
+  const around = byPerson ? aroundNow(hearing.chat) : Promise.resolve(null);
   landing = landing.then(async () => {
-    const said = await land(hearing, await front, around);
+    atTurn = hearing;
+    const said = await land(hearing, ended, await front, around);
+    atTurn = null;
     landings -= 1;
     armEscape();
     if (current) return;
@@ -384,7 +420,7 @@ function released(): void {
   if (!current) return;
   const held = Date.now() - current.pressedAt;
   if (settings.keyBehaviour === 'Tap') return;
-  if (settings.keyBehaviour === 'Hold or tap' && held < TAP_MS) return;
+  if (settings.keyBehaviour === 'Hold or tap' && held >= HANDED_OVER_MS && held < TAP_MS) return;
   finish();
 }
 
@@ -399,18 +435,12 @@ function cancelled(): void {
   tell(landings > 0 ? { kind: 'working', words: '' } : { kind: 'gone' });
 }
 
-/** Escape: drops the dictation that hears, and else skips the clean up that runs. */
+/** Escape: drops the dictation that hears, skips the clean up that runs, and
+ *  else drops the text that waits for its model. */
 function escape(): void {
   if (current) cancelled();
-  else skipCleanUp?.();
-}
-
-async function history(): Promise<History> {
-  const rows = await ctx.db.query(
-    'SELECT id, at, text, program FROM entries ORDER BY id DESC LIMIT ?',
-    [HISTORY_MOST],
-  );
-  return { entries: rows as unknown as Entry[], keeps: settings.history, failed: !!failedSound };
+  else if (skipCleanUp) skipCleanUp();
+  else void atTurn?.dictation.drop();
 }
 
 /** Follows the hotkey's keys: a key alone holds the HUD back a moment. */
@@ -431,12 +461,13 @@ const backend: Backend = {
         program TEXT
       );
     `);
+    if (!settings.history) await ctx.db.exec('DELETE FROM entries');
     keysChanged(await ctx.triggers.hotkeys.list());
     ctx.settings.on('changed', (values) => {
       const before = settings.history;
       settings = values as unknown as Settings;
       if (before && !settings.history) void ctx.db.exec('DELETE FROM entries');
-      void ctx.events.emit({ name: 'history', data: {}, durable: false });
+      historyChanged();
     });
     ctx.triggers.on('dictate', (fired) => {
       const { phase } = fired as HotkeyFire;
@@ -455,7 +486,18 @@ const backend: Backend = {
   },
   tools: {
     hud_state: () => ({ state: hud }),
-    history: async () => ({ ...(await history()) }),
+    async history() {
+      const rows = await ctx.db.query(
+        'SELECT id, at, text, program FROM entries ORDER BY id DESC LIMIT ?',
+        [HISTORY_MOST],
+      );
+      return {
+        entries: rows as unknown as Entry[],
+        keeps: settings.history,
+        failed: !!failedSound,
+        text: lastText,
+      } satisfies History;
+    },
     async microphones() {
       const found = await ctx.capture.devices('microphone');
       return {
@@ -471,16 +513,24 @@ const backend: Backend = {
       await startTest(ctx, settings.microphone || null);
       return { started: true };
     },
-    mic_test_stop: async () => ({ seconds: await stopTest(ctx) }),
+    mic_test_stop: async () => {
+      await stopTest(ctx);
+      return { stopped: true };
+    },
     mic_test_sound: () => ({ pcm: testSound() }),
-    hear_again: async () => await hearAgain(),
+    hear_again: async () => {
+      await hearAgain();
+      return { heard: true };
+    },
     async forget(input) {
       await ctx.db.exec('DELETE FROM entries WHERE id = ?', [(input as { id: number }).id]);
       return { forgotten: true };
     },
     async forget_all() {
       await ctx.db.exec('DELETE FROM entries');
-      void ctx.events.emit({ name: 'history', data: {}, durable: false });
+      lastText = null;
+      failedSound = null;
+      historyChanged();
       return 'The history is empty.';
     },
   },

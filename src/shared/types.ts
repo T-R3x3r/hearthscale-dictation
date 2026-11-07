@@ -30,4 +30,6 @@ export interface History {
   keeps: boolean;
   /** A dictation failed and its sound is still here to hear again. */
   failed: boolean;
+  /** The last text that reached no program and that no entry holds. */
+  text: string | null;
 }

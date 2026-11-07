@@ -2,65 +2,64 @@
  * The microphone test: up to ten seconds of the chosen microphone, for the test's
  * view to play back. The sound stays on this computer and no model hears it.
  */
-import type { AppContext, CapturedPart } from '@hearthscale/app';
+import type { AppContext } from '@hearthscale/app';
+import { levelOf, openMicrophone, PART_MS } from './listening.ts';
 
-const PART_MS = 100;
 const LONGEST_MS = 10_000;
 
-let capture: string | null = null;
+/** The id of the capture that runs. It is a promise so a stop during the start
+ *  still reaches the capture. */
+let capture: Promise<string> | null = null;
 let parts: Uint8Array[] = [];
 let unhook: (() => void) | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
-function levelOf(part: Extract<CapturedPart, { kind: 'audio' }>): number {
-  return Math.max(0, Math.min(1, (part.level + 52) / 30)) ** 0.7;
-}
-
-/** Ends the recording, and tells the view unless a new one replaces it; answers
- *  its length in seconds. */
-export async function stopTest(ctx: AppContext, tell = true): Promise<number> {
+/** Ends the recording, and tells the view unless a new one replaces it. */
+export async function stopTest(ctx: AppContext, tell = true): Promise<void> {
   if (timer) clearTimeout(timer);
   timer = null;
   unhook?.();
   unhook = null;
   const running = capture;
   capture = null;
-  if (running) {
-    await ctx.capture.stop(running).catch(() => {});
-    if (tell) void ctx.events.emit({ name: 'mic-test', data: { recording: false }, durable: false });
-  }
-  return (parts.length * PART_MS) / 1000;
+  if (!running) return;
+  await running.then((id) => ctx.capture.stop(id)).catch(() => {});
+  if (tell) void ctx.events.emit({ name: 'mic-test', data: { recording: false }, durable: false });
 }
 
 export async function startTest(ctx: AppContext, microphone: string | null): Promise<void> {
-  await stopTest(ctx, false);
+  const stopped = stopTest(ctx, false);
   parts = [];
-  const found = microphone
-    ? (await ctx.capture.devices('microphone')).find((device) => device.name === microphone)
-    : undefined;
-  if (microphone && !found) {
-    throw new Error(`The microphone "${microphone}" is not connected.`);
-  }
+  const opened = openMicrophone(ctx, microphone);
+  capture = opened;
+  timer = setTimeout(() => void stopTest(ctx), LONGEST_MS);
   const chunk = ctx.capture.on('chunk', (part) => {
-    if (part.kind !== 'audio' || part.capture !== capture) return;
-    parts.push(part.pcm);
-    void ctx.events.emit({
-      name: 'mic-test',
-      data: { recording: true, level: levelOf(part), seconds: (parts.length * PART_MS) / 1000 },
-      durable: false,
+    if (part.kind !== 'audio') return;
+    void opened.then((own) => {
+      if (part.capture !== own) return;
+      parts.push(part.pcm);
+      void ctx.events.emit({
+        name: 'mic-test',
+        data: {
+          recording: true,
+          level: levelOf(part.level),
+          seconds: (parts.length * PART_MS) / 1000,
+        },
+        durable: false,
+      });
     });
   });
   const ended = ctx.capture.on('ended', (gone) => {
-    if (gone.capture === capture) void stopTest(ctx);
+    void opened.then((own) => {
+      if (gone.capture === own) void stopTest(ctx);
+    });
   });
   unhook = () => {
     chunk();
     ended();
   };
-  capture = (
-    await ctx.capture.start('microphone', { part: PART_MS, ...(found && { device: found.id }) })
-  ).capture;
-  timer = setTimeout(() => void stopTest(ctx), LONGEST_MS);
+  await stopped;
+  await opened;
 }
 
 /** The recording as base64 of 16 kHz mono 16-bit PCM. */
