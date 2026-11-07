@@ -27,6 +27,8 @@ pnpm install
 pnpm build
 ```
 
+`package.json` takes the SDK packages, `@hearthscale/app` and `@hearthscale/app-ui`, from a Hearthscale checkout beside this folder, `../Hearthscale-mxc`.
+
 ## How a dictation runs
 
 1. A press starts the capture at once and opens the stream beside it. The parts wait for the stream, so a model's cold start loses no word.

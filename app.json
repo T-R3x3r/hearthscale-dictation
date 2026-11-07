@@ -153,7 +153,7 @@
         "filterSilence": {
           "type": "boolean",
           "title": "Filter silence",
-          "description": "Skips the parts with no voice before the speech model hears them, and keeps a short stretch around each word.",
+          "description": "Skips the parts with no voice before transcription, and keeps a short stretch around each word.",
           "default": true
         },
         "removeFillers": {
@@ -506,7 +506,7 @@
     },
     {
       "name": "hear_again",
-      "title": "Hear a failed dictation again",
+      "title": "Try a failed dictation again",
       "description": "Transcribes the sound of the dictation that failed.",
       "input": {
         "type": "object",

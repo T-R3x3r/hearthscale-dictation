@@ -6,7 +6,7 @@ Free, with no account.
 
 ## Get started
 
-There is no window to open. Download the models the introduction offers, then hold **Ctrl+Shift+Space** in any program and speak. Let go, and the text appears where you were typing, in any language your model hears.
+There is no window to open. Download the models the introduction offers, then hold **Ctrl+Shift+Space** in any program and speak. Let go, and the text appears where you were typing, in any language your model supports.
 
 - **Live words** show as you speak, with a model that streams. With any other model, the whole text appears when you let go.
 - **Clean up** removes filler words and false starts, keeps your last correction and fixes the punctuation. Clean up runs on your default chat model, unless that model is in the cloud. To use a cloud model, choose it under **Models** in **Settings > Apps > Dictation**.
@@ -22,7 +22,7 @@ Under **Key behaviour**:
 - **Hold** ends the dictation when you let go.
 - **Tap** starts and ends the dictation with a press each.
 
-Press **Esc** while you speak to drop the dictation. After you let go, **Esc** drops the words until the clean up starts. During the clean up, **Esc** skips it, and the words go in as they were heard. At any other moment, Esc works as usual.
+Press **Esc** while you speak to drop the dictation. After you let go, **Esc** drops the words until the clean up starts. During the clean up, **Esc** skips it, and the words go in unchanged. At any other moment, Esc works as usual.
 
 With one key alone, press another key with it to cancel the dictation. Ctrl+C still copies.
 
@@ -36,7 +36,7 @@ A dictation ends after 10 minutes, or after 60 seconds of silence. The text then
 ## Recognition
 
 - **Translate to English** writes English from any language, on a speech model that translates.
-- **Filter silence** skips the parts with no voice before the speech model hears them.
+- **Filter silence** skips the parts with no voice before transcription.
 - **Remove filler words** takes out sounds such as "um" and "uh", with no chat model.
 - **Dictionary** holds names and terms you say. Write `Parakeet = para keet` to fix what the model keeps writing.
 
@@ -49,7 +49,7 @@ A dictation ends after 10 minutes, or after 60 seconds of silence. The text then
 
 ## When something fails
 
-If the speech model fails, History offers **Try again**, which hears the same recording again. If the text cannot be inserted, it stays in History, ready to copy. With **Keep history** off, History holds the last text until the next dictation appears. **Test** beside the microphone in Settings records ten seconds and plays them back, and the sound stays on this computer.
+If the speech model fails, History offers **Try again**, which transcribes the same recording again. If the text cannot be inserted, it stays in History, ready to copy. With **Keep history** off, History holds the last text until the next dictation appears. **Test** beside the microphone in Settings records ten seconds and plays them back, and the sound stays on this computer.
 
 ## Permissions
 
