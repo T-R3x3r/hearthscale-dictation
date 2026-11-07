@@ -274,7 +274,7 @@ function keepFailed(hearing: Hearing): void {
 /** Puts the text in the window `front`. A typed line break is the Enter key,
  *  which sends a message in a chat program, so a text of several lines goes by
  *  paste, or as one line when the person asked for typing. */
-async function insert(text: string, front: string): Promise<void> {
+async function insert(text: string, front: string | null): Promise<void> {
   const byChoice = settings.insert === 'Type';
   const line = byChoice ? oneLine(text) : text;
   const typed = byChoice
@@ -310,7 +310,7 @@ async function remember(text: string): Promise<void> {
 async function land(
   hearing: Hearing,
   ended: Promise<string | null>,
-  front: string | null,
+  target: { front: string | null } | null,
   around: Promise<Around | null>,
 ): Promise<string | null> {
   const said = await ended;
@@ -326,10 +326,10 @@ async function land(
   const text = runsLines(program) ? oneLine(clean) : clean;
   failedSound = null;
   if (!secret) await remember(text);
-  if (front) {
+  if (target) {
     await current?.letGo;
     try {
-      await insert(text, front);
+      await insert(text, target.front);
       if (lastText !== null) {
         lastText = null;
         historyChanged();
@@ -392,11 +392,16 @@ function finish(byPerson = true): void {
   landings += 1;
   tell({ kind: 'working', words: hud.kind === 'speaking' ? hud.words : '' });
   const ended = hearing.dictation.end();
-  const front = byPerson ? ctx.desktop.front().catch(() => null) : Promise.resolve(null);
+  const target = byPerson
+    ? ctx.desktop.front().then(
+        (front) => ({ front }),
+        () => null,
+      )
+    : Promise.resolve(null);
   const around = byPerson ? aroundNow(hearing.chat) : Promise.resolve(null);
   landing = landing.then(async () => {
     atTurn = hearing;
-    const said = await land(hearing, ended, await front, around);
+    const said = await land(hearing, ended, await target, around);
     atTurn = null;
     landings -= 1;
     armEscape();
