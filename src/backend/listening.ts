@@ -35,7 +35,7 @@ export const words = (e: unknown) =>
   (e instanceof Error ? e.message : String(e)).replace(/^[a-z][a-z.-]*: /, '');
 
 /** The loudness of a part from its dBFS, from 0 to 1. */
-export const levelOf = (dbfs: number) => clamp((dbfs + 52) / 30) ** 0.7;
+export const levelOf = (dbfs: number) => clamp((dbfs + 60) / 36);
 
 /** The strength of one frequency in a part, from 0 to 1, by Goertzel's
  *  algorithm: the HUD needs five numbers, not a spectrum. */

@@ -11,7 +11,7 @@ import sheet from './hud.css?inline';
 const COUNT = 7;
 const BAR = 4;
 const STEP = 6.5;
-const MAX = 30;
+const MAX = 38;
 const HEIGHT = 44;
 const SPAN = STEP * (COUNT - 1) + BAR;
 const WIDTH = Math.round(SPAN + 34);
@@ -20,11 +20,16 @@ const MIDDLE = (COUNT - 1) / 2;
 const LINES = 3;
 /** How fast a stripe rises and falls, how much it flickers and how fast, and
  *  how slowly the voice spreads outward, in seconds a stripe. */
-const RISE = 0.5;
-const FALL = 0.14;
-const FLICK = 0.14;
+const RISE = 0.6;
+const FALL = 0.2;
+const FLICK = 0.22;
 const FLICK_RATE = 3.4;
 const SPREAD = 0.07;
+/** The loudest part lately sets the top of the stripes, so a quiet microphone moves
+ *  them as far as a loud one: how much of it each part keeps, and the least it counts
+ *  for, so that a quiet room stays low. */
+const PEAK_KEEPS = 0.97;
+const PEAK_LEAST = 0.45;
 /** How far behind the sound the stripes read it: the time between two parts,
  *  so they move between the parts and not in steps. */
 const BEHIND_S = 0.1;
@@ -62,7 +67,7 @@ const defs = document.createElementNS(NS, 'defs');
 const fade = document.createElementNS(NS, 'linearGradient');
 fade.id = 'fade';
 fade.setAttribute('gradientUnits', 'userSpaceOnUse');
-for (const [name, value] of [['x1', 0], ['x2', 0], ['y1', 8], ['y2', 36]] as const) {
+for (const [name, value] of [['x1', 0], ['x2', 0], ['y1', 3], ['y2', 41]] as const) {
   fade.setAttribute(name, String(value));
 }
 for (const [offset, token] of [[0, '--mark-hi'], [0.5, '--mark-lo'], [1, '--mark-hi']] as const) {
@@ -93,6 +98,7 @@ let state: HudState = { kind: 'gone' };
 /** Each part heard lately, newest last, with when it came. */
 const parts: (Levels & { at: number })[] = [];
 const heights = new Array<number>(COUNT).fill(0.1);
+let peak = 0;
 let lastFrame = 0;
 let running = false;
 
@@ -130,13 +136,10 @@ function frame(ms: number): void {
         : 0.14 + 0.2 * (0.5 + 0.5 * Math.sin(2 * Math.PI * (now / 1.8 - Math.abs(i - MIDDLE) / COUNT)));
     } else {
       const past = read(now, BEHIND_S + Math.abs(i - MIDDLE) * SPREAD);
-      const flick = CALM ? 0 : wobble(now * FLICK_RATE, i * 1.9) * FLICK * past.level;
+      const level = past.level / Math.max(peak, PEAK_LEAST);
+      const flick = CALM ? 0 : wobble(now * FLICK_RATE, i * 1.9) * FLICK * level;
       const band = past.bands[i % past.bands.length] ?? 0;
-      target = clamp(
-        0.08 + (0.92 - 0.3 * away * away) * past.level * (0.82 + 0.18 * band) + flick,
-        0.06,
-        1,
-      );
+      target = clamp(0.05 + (1.1 - 0.35 * away * away) * level * (0.6 + 0.4 * band) + flick, 0.05, 1);
     }
     const rate = target > heights[i]! ? RISE : FALL;
     heights[i]! += (target - heights[i]!) * (1 - Math.pow(1 - rate, dt * 60));
@@ -177,7 +180,10 @@ function show(next: HudState): void {
   noteBox.textContent = next.kind === 'note' ? next.note : '';
   const hearing = next.kind === 'speaking' || next.kind === 'working';
   showWords(hearing ? next.words : '', hearing ? (next.tentative ?? '') : '');
-  if (next.kind === 'speaking' && was !== 'speaking') parts.length = 0;
+  if (next.kind === 'speaking' && was !== 'speaking') {
+    parts.length = 0;
+    peak = 0;
+  }
   if ((next.kind === 'speaking' || next.kind === 'working') && !running) {
     running = true;
     lastFrame = 0;
@@ -217,7 +223,9 @@ app.fallbackNotificationHandler = async ({ method, params }) => {
     told = true;
     show(data as HudState);
   } else if (name === 'levels') {
-    parts.push({ ...(data as Levels), at: performance.now() / 1000 });
+    const part = data as Levels;
+    peak = Math.max(part.level, peak * PEAK_KEEPS);
+    parts.push({ ...part, at: performance.now() / 1000 });
     if (parts.length > 40) parts.shift();
   }
 };

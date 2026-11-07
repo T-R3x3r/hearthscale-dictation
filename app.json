@@ -191,7 +191,7 @@
           "title": "Correction word",
           "description": "The word you say before a correction, such as \"sorry\" or \"scratch that\".",
           "maxLength": 50,
-          "placeholder": "sorry",
+          "placeholder": "Add a word",
           "default": ""
         }
       }
