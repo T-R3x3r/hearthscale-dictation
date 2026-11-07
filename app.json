@@ -78,7 +78,8 @@
   ],
   "models": {
     "transcription": {
-      "required": true
+      "required": true,
+      "input": "microphone"
     },
     "chat": {
       "required": false
