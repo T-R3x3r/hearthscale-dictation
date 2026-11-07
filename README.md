@@ -34,7 +34,7 @@ The first time you use Dictation, enter your password when asked. This gives acc
 
 The keys you hold also reach the program in front. Right Ctrl or a mouse button types nothing there, so these work well in a terminal.
 
-The text goes in through the clipboard. Your clipboard is restored a moment later, except for copied files. In a GTK program such as GNOME Text Editor, new text goes in beside selected text and does not replace it.
+The text goes in through the clipboard. Your clipboard is restored a moment later, except for copied files. On Wayland, in a GTK program such as GNOME Text Editor, new text goes in beside selected text and does not replace it.
 
 ## Models
 
