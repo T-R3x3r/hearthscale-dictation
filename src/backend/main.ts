@@ -316,7 +316,7 @@ async function land(
   const said = await ended;
   if (said === null) return hearing.failed;
   const heard = written(said, await hearing.language);
-  if (!heard) return 'No speech heard.';
+  if (!heard) return 'No speech was heard.';
   const field = await around;
   const secret = field?.password === true;
   const skip = new AbortController();
@@ -376,7 +376,7 @@ async function hearAgain(): Promise<void> {
   if (!sound) return;
   const language = languageNow();
   const text = written(await transcribe(ctx, heardWith(language), sound), await language);
-  if (!text) throw new Error('No speech heard.');
+  if (!text) throw new Error('No speech was heard.');
   const clean = await cleaned(text, chatCard(), null, new AbortController().signal);
   failedSound = null;
   await remember(clean);

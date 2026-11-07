@@ -31,14 +31,14 @@
       },
       {
         "title": "Download a speech model.",
-        "text": "This model fits your language and runs on this computer. Choose another in Settings.",
+        "text": "This model is recommended for your language. You can choose another in Settings.",
         "download": {
           "best": "transcription"
         }
       },
       {
         "title": "Download a chat model.",
-        "text": "A chat model removes filler words and keeps your last correction.",
+        "text": "With a chat model, filler words are removed and your last correction is kept.",
         "download": {
           "kind": "chat",
           "repo": "google/gemma-4-E2B-it-qat-q4_0-gguf",
@@ -46,22 +46,22 @@
         }
       },
       {
-        "title": "Keys, models and history.",
+        "title": "Everything is in Settings.",
         "rows": [
           {
             "icon": "check",
             "title": "Keys",
-            "text": "A combination or one key, such as Right Ctrl, in Settings."
+            "text": "Choose a combination or one key, such as Right Ctrl."
           },
           {
             "icon": "speech",
             "title": "Models",
-            "text": "Any speech and chat model, in Settings."
+            "text": "Choose any speech model and any chat model."
           },
           {
             "icon": "clock",
             "title": "History",
-            "text": "Open it in Settings or from the tray icon. It stays on this computer."
+            "text": "Open your history here or from the tray icon. It stays on this device."
           }
         ]
       }
@@ -113,7 +113,7 @@
         "cleanUp": {
           "type": "boolean",
           "title": "Clean up text",
-          "description": "Runs on your default chat model. A cloud model runs only if you choose it for Dictation.",
+          "description": "Clean up uses your default chat model. A cloud model is used only if you choose it for Dictation.",
           "default": true
         },
         "styles": {
@@ -124,7 +124,7 @@
         "words": {
           "type": "array",
           "title": "Dictionary",
-          "description": "Names and terms you say. Add what the model writes instead after an equals sign: Parakeet = para keet, para-keet.",
+          "description": "Add the names and terms you say. After an equals sign, add what appears in their place: Parakeet = para keet, para-keet.",
           "items": {
             "type": "string",
             "maxLength": 200
@@ -147,25 +147,25 @@
         "translate": {
           "type": "boolean",
           "title": "Translate to English",
-          "description": "On speech models that translate. Speak any language and get English text.",
+          "description": "Speak any language and get English text. This needs a speech model with translation.",
           "default": false
         },
         "filterSilence": {
           "type": "boolean",
           "title": "Filter silence",
-          "description": "Skips the parts with no voice before transcription, and keeps a short stretch around each word.",
+          "description": "Parts with no voice are skipped before transcription, and a short stretch around each word is kept.",
           "default": true
         },
         "removeFillers": {
           "type": "boolean",
           "title": "Remove filler words",
-          "description": "Takes out sounds such as \"um\" and \"uh\". Works with no chat model.",
+          "description": "Sounds such as \"um\" and \"uh\" are taken out. No chat model is needed.",
           "default": true
         },
         "aroundCursor": {
           "type": "boolean",
           "title": "Read the text around the cursor",
-          "description": "Sends up to 1,024 characters on each side of the cursor to the chat model, to settle what you meant. A password field is never read.",
+          "description": "Up to 1,024 characters on each side of the cursor are sent to the chat model for context. A password field is never read.",
           "default": true
         },
         "instructionsKind": {
@@ -180,7 +180,7 @@
         "instructions": {
           "type": "string",
           "title": "Your instructions",
-          "description": "Text that keeps fewer than half of your words is not used.",
+          "description": "A result that keeps fewer than half of your words is not used.",
           "multiline": true,
           "maxLength": 10000,
           "placeholder": "Clean up this dictated text. Keep my words, fix the punctuation, and keep my last correction.",
@@ -189,7 +189,7 @@
         "correction": {
           "type": "string",
           "title": "Correction word",
-          "description": "The word you say before a correction, such as \"sorry\" or \"scratch that\".",
+          "description": "Say this word before a correction, such as \"sorry\" or \"scratch that\".",
           "maxLength": 50,
           "placeholder": "Add a word",
           "default": ""
@@ -340,7 +340,7 @@
     {
       "name": "hud_state",
       "title": "Read the HUD's state",
-      "description": "What the HUD shows now.",
+      "description": "Reads what the HUD shows now.",
       "input": {
         "type": "object",
         "properties": {},
@@ -355,7 +355,7 @@
     {
       "name": "history",
       "title": "Read the history",
-      "description": "The dictations this computer keeps, newest first.",
+      "description": "Reads the dictations kept on this device, newest first.",
       "input": {
         "type": "object",
         "properties": {},
@@ -407,7 +407,7 @@
     {
       "name": "recommend_models",
       "title": "Recommend speech models",
-      "description": "Which of a search's speech models Dictation recommends for the languages.",
+      "description": "Reads which speech models in a search are recommended for the languages.",
       "input": {
         "type": "object",
         "properties": {
@@ -439,7 +439,7 @@
     {
       "name": "microphones",
       "title": "List microphones",
-      "description": "The microphones of this computer.",
+      "description": "Lists the microphones of this device.",
       "input": {
         "type": "object",
         "properties": {},
@@ -516,7 +516,7 @@
     {
       "name": "mic_test_sound",
       "title": "Read the test's recording",
-      "description": "The sound of the microphone test.",
+      "description": "Reads the sound of the microphone test.",
       "input": {
         "type": "object",
         "properties": {},

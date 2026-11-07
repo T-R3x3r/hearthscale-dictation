@@ -120,7 +120,7 @@ function inTime<T>(work: Promise<T>, speech: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<never>((_, refuse) => {
     timer = setTimeout(
-      () => refuse(new Error('The speech model did not answer.')),
+      () => refuse(new Error('No answer came from the speech model.')),
       Math.max(LONGEST_WAIT_MS, speech * WAIT_PER_SPEECH),
     );
   });
