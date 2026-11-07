@@ -30,7 +30,7 @@ A dictation ends after 10 minutes, or after 60 seconds of silence. The text then
 
 ## Models
 
-- **A speech model**, to hear you. Required. Under **Models** in **Settings > Apps > Dictation**, choose your languages, then a model.
+- **A speech model**, to turn speech into text. Required. Under **Models** in **Settings > Apps > Dictation**, choose your languages, then a model.
 - **A chat model**, to clean up the text. Optional. Gemma 4 E2B handles many languages.
 
 ## Recognition
