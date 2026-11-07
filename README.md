@@ -14,7 +14,7 @@ There is no window to open. Download the models the introduction offers, then ho
 
 ## Keys
 
-Change the keys in **Settings > Apps > Dictation**. Choose a combination, or one key alone on Windows, such as Right Ctrl, Right Alt or Caps Lock.
+Change the keys in **Settings > Apps > Dictation**. Choose a combination, or one key alone, such as Right Ctrl or Right Alt.
 
 Under **Key behaviour**:
 
@@ -27,6 +27,14 @@ Press **Esc** while you speak to drop the dictation. After you let go, **Esc** d
 With one key alone, press another key with it to cancel the dictation. Ctrl+C still copies.
 
 A dictation ends after 10 minutes, or after 60 seconds of silence. The text then goes to History and is not typed.
+
+## Linux
+
+The first time you use Dictation, enter your password when asked. This lets Hearthscale read the keyboard and send keys. To do this by hand, or if you choose Cancel, see the note beside **Keys for dictate** in **Settings > Apps > Dictation**.
+
+The keys you hold also reach the program in front. Right Ctrl or a mouse button types nothing there, so these work well in a terminal.
+
+The text goes in through the clipboard, which comes back a moment later.
 
 ## Models
 
