@@ -1,6 +1,7 @@
-/* The history's own layout, over the kit the platform loads into the view. It
-   draws its own box on a clear window, on the colour blobs of the app
-   background. Every length is a count of --space or a token. */
+/* The history's own layout, over the kit the platform loads into the view. At the
+   tray icon it draws its own box on a clear window: the window colour with two
+   blobs at the top corners, as the HUD has. Every length is a count of --space or
+   a token. */
 
 html,
 body,
@@ -11,16 +12,24 @@ body,
   background: transparent;
 }
 
-.history-root {
+.history-root[data-place='tray'] {
+  --history-blob-left: var(--fade-1);
+  --history-blob-right: var(--fade-3);
   box-sizing: border-box;
   border: var(--bw) solid var(--tipline);
   border-radius: var(--r-card);
   background:
-    radial-gradient(calc(var(--space) * 60) calc(var(--space) * 40) at 6% 0%, var(--fade-1)),
-    radial-gradient(calc(var(--space) * 55) calc(var(--space) * 50) at 14% 100%, var(--fade-2)),
-    radial-gradient(calc(var(--space) * 70) calc(var(--space) * 30) at 62% 0%, var(--fade-3)),
-    radial-gradient(calc(var(--space) * 60) calc(var(--space) * 40) at 98% 100%, var(--fade-4)),
-    var(--bg);
+    radial-gradient(75% 45% at 8% 0%, var(--history-blob-left)),
+    radial-gradient(70% 40% at 92% 4%, var(--history-blob-right)), var(--win);
+}
+
+[data-theme='dark'] .history-root[data-place='tray'] {
+  --history-blob-left: var(--fade-4);
+  --history-blob-right: var(--fade-1);
+}
+
+.history-dialog {
+  height: calc(var(--space) * 110);
 }
 
 .history-root .hs-overlay-scroll {
@@ -47,8 +56,6 @@ body,
   color: var(--text);
   font-size: var(--fs-body);
 }
-
-
 
 .mic-test-body {
   display: flex;

@@ -504,6 +504,7 @@ const backend: Backend = {
         ],
       };
     },
+    open_history: () => ({ opened: true }),
     test_microphone: () => ({ opened: true }),
     mic_test_start: async () => {
       if (current) throw new Error('A dictation is running.');

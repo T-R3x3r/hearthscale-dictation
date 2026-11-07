@@ -61,7 +61,7 @@
           {
             "icon": "clock",
             "title": "History",
-            "text": "Open it from the tray icon. It stays on this computer."
+            "text": "Open it in Settings or from the tray icon. It stays on this computer."
           }
         ]
       }
@@ -207,10 +207,12 @@
           {
             "kind": "property",
             "property": "microphone",
-            "action": {
-              "tool": "test_microphone",
-              "title": "Test"
-            }
+            "actions": [
+              {
+                "tool": "test_microphone",
+                "title": "Test"
+              }
+            ]
           },
           {
             "kind": "property",
@@ -294,14 +296,20 @@
           {
             "kind": "property",
             "property": "history",
-            "action": {
-              "tool": "forget_all",
-              "title": "Clear",
-              "confirm": {
-                "title": "Clear the history?",
-                "body": "This removes every dictation. You cannot undo this."
+            "actions": [
+              {
+                "tool": "open_history",
+                "title": "Open"
+              },
+              {
+                "tool": "forget_all",
+                "title": "Clear",
+                "confirm": {
+                  "title": "Clear the history?",
+                  "body": "This removes every dictation. You cannot undo this."
+                }
               }
-            }
+            ]
           }
         ]
       }
@@ -444,6 +452,22 @@
       ]
     },
     {
+      "name": "open_history",
+      "title": "Open the history",
+      "description": "Opens the history over Settings.",
+      "input": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "mutating": false,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ],
+      "view": "history"
+    },
+    {
       "name": "test_microphone",
       "title": "Test microphone",
       "description": "Opens the microphone test.",
@@ -536,7 +560,8 @@
       "title": "History",
       "entry": "views/history.js",
       "placements": [
-        "popover"
+        "popover",
+        "inline"
       ]
     },
     {

@@ -10,7 +10,7 @@ There is no window to open. Download the models the introduction offers, then ho
 
 - **Live words** show as you speak, with a model that streams. With any other model, the whole text appears when you let go.
 - **Clean up** removes filler words and false starts, keeps your last correction and fixes the punctuation. Clean up runs on your default chat model, unless that model is in the cloud. To use a cloud model, choose it under **Models** in **Settings > Apps > Dictation**.
-- **History** keeps each dictation on this computer, so you can copy it again. Open **Dictation: History** from the tray icon. Turn it off in Settings, and the history is deleted.
+- **History** keeps each dictation on this computer, so you can copy it again. Choose **Open** beside **Keep history** in Settings, or **Dictation: History** from the tray icon. Turn it off in Settings, and the history is deleted.
 
 ## Keys
 
