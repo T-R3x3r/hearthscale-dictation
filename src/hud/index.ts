@@ -1,6 +1,6 @@
 /**
- * The HUD: seven capsule stripes on a centre line, in the gold fade, on the
- * colour blobs of the app background. The voice spreads from the centre
+ * The HUD: seven capsule stripes on a centre line, in the gold fade, on a plate
+ * with two colour blobs. The voice spreads from the centre
  * outward. It stays loaded between dictations and reports an empty size, so
  * it shows at once.
  */

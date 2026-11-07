@@ -3,7 +3,8 @@
    plate grows inside it from its bottom edge, so the stripes stay where they
    are. Every colour, corner, type size, duration and length is a token, so a
    theme and a colourway reach all of it. An overlay window cannot blur what
-   lies behind it, so the blobs sit on solid --bg. */
+   lies behind it, so the plate is the solid window colour, with two blobs at its
+   top corners in the places and the colours of the website's field. */
 
 html,
 body {
@@ -37,16 +38,19 @@ body {
   width: calc(var(--space) * 19.25);
   border: var(--bw) solid var(--tipline);
   border-radius: var(--r-card);
+  --hud-blob-left: var(--fade-1);
+  --hud-blob-right: var(--fade-3);
   background:
-    radial-gradient(calc(var(--space) * 22.5) calc(var(--space) * 15) at 6% 0%, var(--fade-1)),
-    radial-gradient(calc(var(--space) * 20) calc(var(--space) * 17.5) at 14% 100%, var(--fade-2)),
-    radial-gradient(calc(var(--space) * 27.5) calc(var(--space) * 10) at 62% 0%, var(--fade-3)),
-    radial-gradient(calc(var(--space) * 22.5) calc(var(--space) * 15) at 98% 100%, var(--fade-4)),
-    radial-gradient(calc(var(--space) * 30) calc(var(--space) * 11.5) at 45% 110%, var(--fade-5)),
-    radial-gradient(calc(var(--space) * 22.5) calc(var(--space) * 11.5) at 90% -10%, var(--fade-6)),
-    var(--bg);
+    radial-gradient(75% 170% at 8% 0%, var(--hud-blob-left)),
+    radial-gradient(70% 150% at 92% 12%, var(--hud-blob-right)),
+    var(--win);
   box-shadow: var(--gloss-edge), var(--shadow-float);
   transition: width var(--dur-slow) var(--ease-out);
+}
+
+[data-theme='dark'] .hud-plate {
+  --hud-blob-left: var(--fade-4);
+  --hud-blob-right: var(--fade-1);
 }
 
 .hud-root[data-words='true'] .hud-plate {
