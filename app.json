@@ -79,7 +79,8 @@
   "models": {
     "transcription": {
       "required": true,
-      "input": "microphone"
+      "input": "microphone",
+      "recommend": "recommend_models"
     },
     "chat": {
       "required": false
@@ -390,6 +391,38 @@
         "additionalProperties": false
       },
       "mutating": true,
+      "outbound": false,
+      "visibility": [
+        "app"
+      ]
+    },
+    {
+      "name": "recommend_models",
+      "title": "Recommend speech models",
+      "description": "Which of a search's speech models Dictation recommends for the languages.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "languages": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "repo": { "type": "string" },
+                "speech": {}
+              },
+              "required": ["repo", "speech"]
+            }
+          }
+        },
+        "required": ["languages", "models"],
+        "additionalProperties": false
+      },
+      "mutating": false,
       "outbound": false,
       "visibility": [
         "app"

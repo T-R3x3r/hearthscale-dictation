@@ -15,6 +15,7 @@ import type { Entry, History, HudState, Levels } from '../shared/types.ts';
 import { cleanUp, runsLines, type Around } from './cleanup.ts';
 import { Dictation, transcribe, words as reason, type Heard } from './listening.ts';
 import { startTest, stopTest, testSound } from './micTest.ts';
+import { recommend, type Search } from './recommend.ts';
 import { dictionaryOf, withAliases, withoutFillers, type Dictionary } from './words.ts';
 
 interface Settings {
@@ -376,12 +377,7 @@ async function hearAgain(): Promise<void> {
   const language = languageNow();
   const text = written(await transcribe(ctx, heardWith(language), sound), await language);
   if (!text) throw new Error('No speech heard.');
-  const clean = await cleaned(
-    text,
-    chatCard(),
-    null,
-    new AbortController().signal,
-  );
+  const clean = await cleaned(text, chatCard(), null, new AbortController().signal);
   failedSound = null;
   await remember(clean);
 }
@@ -498,6 +494,7 @@ const backend: Backend = {
         text: lastText,
       } satisfies History;
     },
+    recommend_models: (input) => ({ recommended: recommend(input as unknown as Search) }),
     async microphones() {
       const found = await ctx.capture.devices('microphone');
       return {

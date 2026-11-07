@@ -15,6 +15,7 @@ Dictation is a headless Hearthscale app, built only on the platform's documented
 | `src/backend/cleanup.ts` | The clean up by the chat model. |
 | `src/backend/words.ts` | The dictionary's entries, and the text steps that need no model. |
 | `src/backend/micTest.ts` | The recording of the microphone test. |
+| `src/backend/recommend.ts` | Which speech models the app recommends, from what each card measured. |
 | `src/hud/` | The view over other programs, with no framework. |
 | `src/view/` | The history at the tray icon and the microphone test, React on the kit's parts. |
 | `views/` | The views' builds, the files the package carries for them, committed with every change. |
