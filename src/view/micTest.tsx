@@ -148,7 +148,7 @@ const style = document.createElement('style');
 style.textContent = sheet;
 document.head.append(style);
 
-const app = new App({ name: 'Microphone test', version: '0.1.0' }, {}, { autoResize: false });
+const app = new App({ name: 'Microphone test', version: '0.1.1' }, {}, { autoResize: false });
 const host = new Host(app);
 const call = hostCall(app as never);
 await app.connect(new PostMessageTransport(window.parent, window.parent));

@@ -2,8 +2,8 @@
   "$schema": "https://hearthscale.com/app.schema.json",
   "id": "dictation",
   "name": "Dictation",
-  "version": "0.1.0",
-  "api": 6,
+  "version": "0.1.1",
+  "api": 7,
   "icon": {
     "light": "assets/icon-light.svg",
     "dark": "assets/icon-dark.svg"
@@ -40,9 +40,7 @@
         "title": "Download a chat model.",
         "text": "With a chat model, filler words are removed and your last correction is kept.",
         "download": {
-          "kind": "chat",
-          "repo": "google/gemma-4-E2B-it-qat-q4_0-gguf",
-          "file": "gemma-4-E2B_q4_0-it.gguf"
+          "best": "chat"
         }
       },
       {

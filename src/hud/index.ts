@@ -92,7 +92,7 @@ plate.append(wordsBox, svg, noteBox);
 root.append(plate);
 document.body.append(root);
 
-const app = new App({ name: 'Dictation HUD', version: '0.1.0' }, {}, { autoResize: false });
+const app = new App({ name: 'Dictation HUD', version: '0.1.1' }, {}, { autoResize: false });
 
 let state: HudState = { kind: 'gone' };
 /** Each part heard lately, newest last, with when it came. */

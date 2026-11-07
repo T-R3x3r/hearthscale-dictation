@@ -39,7 +39,7 @@ The text goes in through the clipboard. Your clipboard is restored a moment late
 ## Models
 
 - **A speech model** is required to turn speech into text. Under **Models** in **Settings > Apps > Dictation**, choose your languages, then a model.
-- **A chat model** is optional, and it is used to clean up the text. Gemma 4 E2B is a good choice for many languages.
+- **A chat model** is optional, and it is used to clean up the text.
 
 ## Recognition
 
