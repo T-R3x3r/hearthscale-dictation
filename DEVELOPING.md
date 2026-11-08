@@ -27,7 +27,7 @@ pnpm install
 pnpm build
 ```
 
-`package.json` takes the SDK packages, `@hearthscale/app` and `@hearthscale/app-ui`, from a Hearthscale checkout beside this folder, `../Hearthscale-mxc`.
+`package.json` takes the SDK packages, `@hearthscale/app` and `@hearthscale/app-ui`, from npm.
 
 ## How a dictation runs
 

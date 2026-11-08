@@ -7,12 +7,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hearthscale/app-ui": "link:../Hearthscale-mxc/packages/app-ui",
+    "@hearthscale/app-ui": "^0.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@hearthscale/app": "link:../Hearthscale-mxc/packages/app",
+    "@hearthscale/app": "^0.3.0",
     "@modelcontextprotocol/ext-apps": "1.7.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
